@@ -137,17 +137,18 @@ exports.updateProduct = async (req, res) => {
 };
 
 
-
-
-exports.getAllProduct = async (req, res) => {
+exports.getAllProducts = async (req, res) => {
   try {
-    const Allproduct = await Product.find({});
-
-    res.status(201).json(Allproduct);
-  } catch (err) {
-    res.status(500).json({ err: "No Products to show" });
+    const allProducts = await Product.find();
+    res.status(200).json(allProducts);
+  } catch (error) {
+    console.error("Error fetching all products:", error);
+    res.status(500).json({ error: "Failed to fetch all products" });
   }
 };
+
+
+
 
 exports.getproductCategory=async(req,res)=>{
   const { category, subcategory } = req.params;

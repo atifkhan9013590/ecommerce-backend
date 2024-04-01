@@ -13,61 +13,128 @@ const twilio = require('twilio');
 
 
 
-function calculateTotalAmount(cart) {
-  return cart.reduce((total, item) => {
-    const itemPrice = item.productDetails.price || 0;
-    const itemQuantity = item.cartQuantity || 0;
-    const discountPercentage = item.productDetails.percentage || 0;
 
-    const discountedPrice = itemPrice - (itemPrice * discountPercentage) / 100;
 
-    return total + discountedPrice * itemQuantity;
-  }, 0);
+
+
+
+
+
+
+function generateEmailContent(
+  orderProducts,
+  totalAmount,
+  firstName,
+  lastName,
+  address,
+  city,
+  postalCode
+) {
+  let content = "<h1>Order Details:</h1>";
+
+  // Loop through order products and generate HTML for each
+  orderProducts.forEach((product, index) => {
+    content += `
+      <div style="margin-bottom: 20px;">
+        <p><strong>Description:</strong> ${product.description}</p>
+        <p><strong>Quantity:</strong> ${product.cartQuantity}</p>
+        <p><strong>Price:</strong> ${product.price}</p>
+      </div>
+    `;
+  });
+
+  // Add total amount section with styling
+  content += `
+    <div style="border-top: 1px solid #000; border-bottom: 1px solid #000; margin-top: 20px;">
+      <p><strong>Total Amount:</strong> ${totalAmount}</p>
+    </div>
+  `;
+
+  // Add shipping address section
+  content += `<h2>Shipping Address</h2>`;
+  content += `<p><strong>First Name:</strong> ${firstName}</p>`;
+  content += `<p><strong>Last Name:</strong> ${lastName}</p>`;
+  content += `<p><strong>Address:</strong> ${address}</p>`;
+  content += `<p><strong>City:</strong> ${city}</p>`;
+  content += `<p><strong>Postal Code:</strong> ${postalCode}</p>`;
+
+  return content;
 }
 
 
+// Helper function to generate attachments for thumbnails
+function generateThumbnailAttachments(orderProducts) {
+  return orderProducts.map((product, index) => ({
+    filename: `thumbnail_${index + 1}.png`, // You can adjust the filename as needed
+    content: product.thumbnail.replace(/^data:image\/png;base64,/, ""),
+    encoding: "base64",
+  }));
+}
 
-// Helper function to send order confirmation email using Ethereal
-async function sendOrderConfirmationEmailGmail(toEmail, content) {
+async function sendOrderConfirmationEmailGmail(toEmail, content, attachments) {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "almarjan366@gmail.com", // Your Gmail address
-        pass: "rzll zpcw vtkj fosi",   // Your Gmail app password
+        user: config.myEmail,
+        pass: config.myPassweord,
       },
     });
 
-    const info = await transporter.sendMail({
-      from: "almarjan366@gmail.com",
+    const mailOptions = {
+      from: config.myEmail,
       to: toEmail,
       subject: "Order Confirmation",
-      text: content,
-    });
+      html: content,
+      attachments: attachments,
+    };
 
-    console.log("Email sent: " + info.response);
+    await transporter.sendMail(mailOptions);
+    console.log("Order confirmation email sent successfully");
   } catch (error) {
     console.error("Error sending email:", error.message);
   }
 }
 
+async function sendOrderConfirmationEmail(
+  orderData,
+  userEmail,
+  firstName,
+  lastName,
+  address,
+  city,
+  postalCode
+) {
+  try {
+    const { products, totalAmount } = orderData;
 
+    // Generate email content
+    const emailContent = generateEmailContent(
+      products,
+      totalAmount,
+      firstName,
+      lastName,
+      address,
+      city,
+      postalCode
+    );
 
-// Helper function to generate email content
-function generateEmailContent(orderProducts, totalAmount) {
-  let content = "Order Details:\n\n";
+    // Generate attachments for thumbnails
+    const thumbnailAttachments = generateThumbnailAttachments(products);
 
-  orderProducts.forEach((product, index) => {
-    content += `${index + 1}. ${product.description} - Quantity: ${
-      product.cartQuantity
-      
-    } - Price: ${product.price}\n`;
-  });
-
-  content += `\nTotal Amount: ${totalAmount}`;
-
-  return content;
+    // Send order confirmation email with attachments
+    await sendOrderConfirmationEmailGmail(
+      userEmail,
+      emailContent,
+      thumbnailAttachments
+    );
+  } catch (error) {
+    console.error("Error sending order confirmation email:", error);
+  }
 }
+
+
+// Function to generate a random order ID
 function generateOrderId() {
   const orderId = Math.floor(10000 + Math.random() * 90000).toString();
   return orderId;
@@ -75,31 +142,25 @@ function generateOrderId() {
 
 exports.placeOrder = async (req, res) => {
   try {
-     const orderId = generateOrderId();
-
-     // Set the generated OrderId in the request body
-  
+    console.log("Request Body:", req.body);
+    const orderId = generateOrderId();
     const userEmail = req.user.email;
-
     const user = await User.findOne({ email: userEmail }).populate({
       path: "cart",
       model: "Product",
-      select: "name title  cartQuantity stockQuantity category description percentage price thumbnail quantity",
+      select:
+        "_id name title  cartQuantity stockQuantity category description percentage price thumbnail quantity",
     });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (!user.cart || user.cart.length === 0) {
-      return res.status(400).json({
-        message: "Cart is empty. Add items to the cart before placing an order.",
-      });
-    }
-console.log("Incomplete Order Details:", req.body);
+    console.log("Incomplete Order Details:", req.body);
 
     const {
       Email,
+      totalAmount,
       country,
       firstName,
       lastName,
@@ -108,11 +169,12 @@ console.log("Incomplete Order Details:", req.body);
       postalCode,
       phoneNumber,
       paymentMethod,
-      couponCode,
+      product,
     } = req.body;
 
     const requiredFields = [
       "Email",
+      "totalAmount",
       "country",
       "firstName",
       "lastName",
@@ -147,149 +209,63 @@ console.log("Incomplete Order Details:", req.body);
       !city ||
       !postalCode ||
       !phoneNumber ||
+      !totalAmount ||
       !paymentMethod
     ) {
       return res.status(400).json({
-        message: "Incomplete order details. Please provide all required information.",
+        message:
+          "Incomplete order details. Please provide all required information.",
       });
     }
-console.log("Order Payload from Frontend:", req.body);
-    let totalAmount = calculateTotalAmount(user.cart);
+
+    console.log("Order Payload from Frontend:", req.body);
+
     let order;
 
-    for (const cartItem of user.cart) {
-      const productDetails = cartItem.productDetails;
+    order = new Order({
+      OrderId: orderId,
+      user: user._id,
+      products: user.cart.map((item) => ({
+        product: item.productDetails.id,
+        thumbnail: item.productDetails.thumbnail,
+        name: item.productDetails.name,
+        category: item.productDetails.category,
+        percentage: item.productDetails.percentage,
+        description: item.productDetails.description,
+        price: item.productDetails.price,
+        stockQuantity: item.productDetails.stockQuantity,
+        quantity: item.productDetails.quantity,
+        cartQuantity: item.cartQuantity,
+      })),
+      Email,
+      totalAmount,
+      country,
+      firstName,
+      lastName,
+      address,
+      city,
+      postalCode,
+      phoneNumber,
+      paymentMethod,
+    });
 
-      if (!productDetails) {
-        return res.status(404).json({
-          message: `Product details not found for cart item: ${cartItem}`,
-        });
-      }
-
-      const product = await Product.findById(productDetails.id);
+    for (const item of user.cart) {
+      console.log("Current item:", item);
+      const product = await Product.findById(item.productDetails.id);
+      console.log("Retrieved product:", product);
 
       if (!product) {
+        console.log("ITEMS", item);
         return res.status(404).json({
-          message: `Product not found for cart item: ${cartItem}`,
+          message: `Product not found for cart item: ${item}`,
         });
       }
 
-      if (!product.quantity || product.quantity > product.stockQuantity) {
-        return res.status(400).json({
-          message: `Invalid quantity for ${product.title}. Available stock: ${product.stockQuantity}`,
-        });
-      }
-
-      product.stockQuantity -= product.quantity;
+      // Subtract cart quantity from stock quantity
+      product.stockQuantity -= item.cartQuantity;
       await product.save();
     }
 
-    if (couponCode) {
-      const coupon = await Coupon.findOne({ code: couponCode });
-
-      if (coupon) {
-        const discountPercentage = coupon.discountPercentage || 0;
-        const discountAmount = (totalAmount * discountPercentage) / 100;
-        totalAmount -= discountAmount;
-
-        // Check if any product description matches the coupon description
-        const matchingProduct = user.cart.find(item => item.productDetails.category === coupon.category);
-
-        if (matchingProduct) {
-          order = new Order({
-            OrderId: orderId,
-            user: user._id,
-            products: user.cart.map((item) => ({
-              product: item.productDetails.id,
-              thumbnail: item.productDetails.thumbnail,
-              name: item.productDetails.name,
-              category: item.productDetails.category,
-              percentage: item.productDetails.percentage,
-              description: item.productDetails.description,
-              price: item.productDetails.price,
-              quantity: item.productDetails.quantity,
-              cartQuantity: item.cartQuantity,
-            })),
-            Email,
-            totalAmount,
-            country,
-            firstName,
-            lastName,
-            address,
-            city,
-            postalCode,
-            phoneNumber,
-            paymentMethod,
-            discount: {
-              code: couponCode,
-              percentage: discountPercentage,
-              amount: discountAmount,
-            },
-          });
-        } else {
-          // Apply coupon without description
-          order = new Order({
-            OrderId: orderId,
-            user: user._id,
-            products: user.cart.map((item) => ({
-              product: item.productDetails.id,
-              thumbnail: item.productDetails.thumbnail,
-              name: item.productDetails.name,
-              category: item.productDetails.category,
-              percentage: item.productDetails.percentage,
-              description: item.productDetails.description,
-              price: item.productDetails.price,
-              quantity: item.productDetails.quantity,
-              cartQuantity: item.cartQuantity,
-            })),
-            Email,
-            totalAmount,
-            country,
-            firstName,
-            lastName,
-            address,
-            city,
-            postalCode,
-            phoneNumber,
-            paymentMethod,
-            discount: {
-              code: couponCode,
-              percentage: discountPercentage,
-              amount: discountAmount,
-            },
-          });
-        }
-      }
-    }
-
-    if (!order) {
-      order = new Order({
-        OrderId: orderId,
-        user: user._id,
-        products: user.cart.map((item) => ({
-          product: item.productDetails.id,
-          thumbnail: item.productDetails.thumbnail,
-          description: item.productDetails.description,
-          name: item.productDetails.name,
-          category: item.productDetails.category,
-          percentage: item.productDetails.percentage,
-          price: item.productDetails.price,
-          quantity: item.productDetails.quantity,
-          cartQuantity: item.cartQuantity,
-        })),
-        Email,
-        totalAmount,
-        country,
-        firstName,
-        lastName,
-        address,
-        city,
-        postalCode,
-        phoneNumber,
-        paymentMethod,
-      });
-    }
- console.log("Order Payload before Saving:", order);
     if (paymentMethod === "Cash") {
       await order.save();
     } else if (paymentMethod === "Stripe") {
@@ -307,41 +283,31 @@ console.log("Order Payload from Frontend:", req.body);
 
       order.stripePaymentIntentId = paymentIntent.id;
       await order.save();
-
-      const populatedOrder = await Order.findById(order._id).populate({
-        path: "products.product",
-        model: "Product",
-        select: "name category description percentage price thumbnail quantity",
-      });
-
-      user.orderHistory.push(order._id);
-      user.cart = [];
-      await user.save();
-
-      const emailContent = generateEmailContent(populatedOrder.products, totalAmount);
-      await sendOrderConfirmationEmailGmail(Email, emailContent);
-
-      const notificationMessage = `${Email} placed Order: ${totalAmount}pkr`;
-      const orderNotification = new OrderNotification({ // Corrected model name
-        orderId: order._id,
-        message: notificationMessage,
-      });
-      await orderNotification.save();
-
-      return res.status(201).json({ message: "Order placed successfully" });
     } else {
       return res.status(400).json({ message: "Invalid payment method" });
     }
-
-    user.orderHistory.push(order._id);
-    user.cart = [];
+    user.orderHistory.push(order);
     await user.save();
+    // Clear user's cart if products are from user's cart
+    if (!product) {
+      user.cart = [];
+      await user.save();
+    }
 
-    const emailContent = generateEmailContent(order.products, totalAmount);
-    await sendOrderConfirmationEmailGmail(Email, emailContent);
+    // Send email confirmation
+     await sendOrderConfirmationEmail(
+       order,
+       Email,
+       firstName,
+       lastName,
+       address,
+       city,
+       postalCode
+     );
 
+    // Save order notification
     const notificationMessage = `${Email} placed Order:${totalAmount}.00pkr`;
-    const orderNotification = new OrderNotification({ // Corrected model name
+    const orderNotification = new OrderNotification({
       orderId: order._id,
       message: notificationMessage,
     });
@@ -350,9 +316,11 @@ console.log("Order Payload from Frontend:", req.body);
     return res.status(201).json({ message: "Order placed successfully" });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
   }
-};
+}; 
 
 exports.allOrder = async (req, res) => {
   try {
@@ -409,13 +377,13 @@ async function sendOrderStatusEmail(userEmail, status) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "almarjan366@gmail.com", // Your Gmail address
-        pass: "rzll zpcw vtkj fosi",      // Your Gmail app password
+        user: config.myEmail, // Your Gmail address
+        pass: config.myPassweord,      // Your Gmail app password
       },
     });
 
     const mailOptions = {
-      from: "almarjan366@gmail.com",
+      from: config.myEmail,
       to: userEmail,
       subject: "Order Status Update",
       text: `Your order status has been updated to: ${status}`,
@@ -609,16 +577,16 @@ async function sendCancellationEmail(userEmail) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "almarjan366@gmail.com", // Your Gmail address
-        pass: "rzll zpcw vtkj fosi",   // Your Gmail app password
+        user: config.myEmail, // Your Gmail address
+        pass: config.myPassweord, // Your Gmail app password
       },
     });
 
     const mailOptions = {
-      from: "almarjan366@gmail.com",
+      from: config.myEmail,
       to: userEmail,
       subject: "Order Cancellation",
-      text: "Your order has been cancelled."
+      text: "Your order has been cancelled.",
     };
 
     await transporter.sendMail(mailOptions);
@@ -626,3 +594,184 @@ async function sendCancellationEmail(userEmail) {
     console.error("Error sending email:", error);
   }
 }
+
+
+
+
+
+// Function to generate a random order ID
+function generateOrderId() {
+  const orderId = Math.floor(10000 + Math.random() * 90000).toString();
+  return orderId;
+}
+
+exports.placeOrderWithProduct = async (req, res) => {
+  try {
+    const orderId = generateOrderId();
+    const {
+      Email,
+      country,
+      firstName,
+      totalAmount,
+      lastName,
+      address,
+      city,
+      postalCode,
+      phoneNumber,
+      paymentMethod,
+      products,
+    } = req.body;
+
+    // Log the request body
+    console.log("Request Body:", req.body);
+
+    // Check if all required fields are present
+    const requiredFields = [
+      "Email",
+      "country",
+      "firstName",
+      "totalAmount",
+      "lastName",
+      "address",
+      "city",
+      "postalCode",
+      "phoneNumber",
+      "paymentMethod",
+      "products",
+    ];
+
+    // Check for missing required fields
+    const missingFields = requiredFields.filter((field) => !req.body[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message:
+          "Incomplete order details. Please provide all required information.",
+        missingFields: missingFields,
+      });
+    }
+
+    // Create the order object
+    const order = new Order({
+      OrderId: orderId,
+      products: products.map((product) => ({
+        product: product._id,
+        thumbnail: product.thumbnail,
+        description: product.description,
+        price: product.price,
+        percentage: product.percentage,
+        cartQuantity: product.cartQuantity,
+        category: product.category,
+      })),
+      Email,
+      totalAmount,
+      country,
+      firstName,
+      lastName,
+      address,
+      city,
+      postalCode,
+      phoneNumber,
+      paymentMethod,
+    });
+
+    // Fetch the user based on email
+    const user = await User.findOne({ email: Email });
+
+    console.log("User:", user); // Add this line to check the fetched user
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Push the order into the user's order history
+    user.orderHistory.push(order);
+
+    console.log("User after pushing order:", user); // Add this line to check user after pushing order
+
+    // Save the user
+    await user.save();
+    await order.save();
+
+    // Log the payload after saving the order
+    console.log("Payload after saving order:", order);
+
+    // Update product stock quantity
+    for (const product of products) {
+      // Find the product by its _id and update its stock quantity
+      await Product.updateOne(
+        { _id: product._id },
+        { $inc: { stockQuantity: -product.cartQuantity } }
+      );
+    }
+
+    // Send order confirmation email
+    const emailContent = generateEmailContent(products, totalAmount);
+   await sendOrderConfirmationEmail(
+     order,
+     Email,
+     firstName,
+     lastName,
+     address,
+     city,
+     postalCode
+   );
+
+    // Save order notification
+    const notificationMessage = `${Email} placed Order:${totalAmount}.00pkr`;
+    const orderNotification = new OrderNotification({
+      orderId: order._id,
+      message: notificationMessage,
+    });
+    await orderNotification.save();
+
+    return res.status(201).json({ message: "Order placed successfully" });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+exports.filterOrdersByStatus = async (req, res) => {
+  try {
+    const { status } = req.params;
+    const filteredOrders = await Order.find({ status });
+
+    res
+      .status(200)
+      .json({
+        message: `Orders filtered by status: ${status}`,
+        orders: filteredOrders,
+      });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+// Controller function to filter orders by last N days
+exports.filterOrdersByDays = async (req, res) => {
+  try {
+    const { days } = req.params;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const filteredOrders = await Order.find({ createdAt: { $gte: startDate } });
+
+    res
+      .status(200)
+      .json({
+        message: `Orders filtered by last ${days} days`,
+        orders: filteredOrders,
+      });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};

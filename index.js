@@ -18,7 +18,10 @@ const AnnouncementRouter = require("./routes/announcement.js");
 const notificationRouter = require("./routes/notification.js");
 const SearchRouter = require("./routes/search.js");
 const  FilterRouter = require("./routes/filter.js")
-const AddressRouter =require("./routes/address.js")
+const ProductSearchRouter =require('./routes/productsearch.js')
+const LocationRouter=require('./routes/location.js')
+const ShippingRouter =require('./routes/shipping')
+
 const OrderStatusRouter =require('./routes/orderstatus.js')
 require("dotenv").config();
 
@@ -51,8 +54,10 @@ app.use("/category", CategoryRouter.CategoryRouter);
 app.use("/filter",FilterRouter.FilterRouter);
 app.use("/stock", StockRouter.StockRouter);
 app.use("/Banner", BannerRouter.BannerRouter);
+app.use('/location',LocationRouter.LocationRouter);
+app.use('/shipping',ShippingRouter.ShippingRouter);
 app.use("/inventory", inventoryRouter.inventoryRouter);
-app.use("/address",AddressRouter.AddressRouter);
+app.use('/Prd',ProductSearchRouter.ProductSearchRouter);
 app.use('/status',OrderStatusRouter.OrderStatusRouter);
 app.use("/user", UserRouter.UserRouter);
 app.use("/Rating", RatingRouter.RatingRouter);
@@ -61,6 +66,7 @@ app.use("/coupon", CouponRouter.CouponRouter);
 app.use("/announcements", AnnouncementRouter.AnnouncementRouter);
 app.use("/notification", notificationRouter.notificationRouter);
 app.use("/search", SearchRouter.SearchRouter);
+
 
 // Server setup
 const PORT = 8000;

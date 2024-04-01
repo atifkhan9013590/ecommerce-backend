@@ -11,14 +11,10 @@ UserRouter.post("/signup", Userdb.signUp)
   .post("/addCart", authMiddleware.authMiddleware, Userdb.AddToCart)
   .get("/cart", authMiddleware.authMiddleware, Userdb.getCart)
   .delete("/cart/:itemId", authMiddleware.authMiddleware, Userdb.deleteCartItem)
-  .delete(
-    "deleteAll/cart",
-    authMiddleware.authMiddleware,
-    Userdb.deleteAllCartItems
-  )
+  .post('/deleteSelectedUsers',Userdb.deleteSelectedUsers)
 
   .get("/profile", authMiddleware.authMiddleware, Userdb.getUserProfile)
-
+  .post('/DeleteUser',Userdb.deleteUser)
   .post("/forgot-password", Userdb.forgotPassword)
   .post("/reset-password", Userdb.resetPassword)
   .post("/verify-otp", Userdb.verifyOTP)
@@ -28,7 +24,7 @@ UserRouter.post("/signup", Userdb.signUp)
     authMiddleware.authMiddleware,
     Userdb.UserCartFind
   )
-
+.post('/orderHistory',Userdb.getUserOrderHistory)
   .get(
     "/user-details-and-coupon",
     authMiddleware.authMiddleware,
@@ -57,7 +53,26 @@ UserRouter.post("/signup", Userdb.signUp)
     authMiddleware.authMiddleware,
     Userdb.deleteFromWishlist
   )
-  .get("/wishlist",authMiddleware.authMiddleware,Userdb.getWishlist);
+  .get("/wishlist", authMiddleware.authMiddleware, Userdb.getWishlist)
+  .post("/change-password", Userdb.changePassword)
+  .delete(
+    "/deleteAll",
+    authMiddleware.authMiddleware,
+    Userdb.deleteAllCartItems
+  )
+  .get(
+    "/orderHistory",
+    authMiddleware.authMiddleware,
+    Userdb.getUserOrderHistory
+  )
+  .post("/address", authMiddleware.authMiddleware, Userdb.postUserAddress)
+  .get("/address", authMiddleware.authMiddleware, Userdb.getUserAddresses)
+  .delete(
+    "/address/:addressId",
+    authMiddleware.authMiddleware,
+    Userdb.deleteUserAddress
+  );
+
   
 
 

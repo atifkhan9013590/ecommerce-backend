@@ -15,13 +15,13 @@ async function sendOrderOTPEmailGmail(toEmail, content) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "almarjan366@gmail.com", // Your Gmail address
-        pass: "rzll zpcw vtkj fosi", // Your Gmail app password
+        user: config.myEmail, // Your Gmail address
+        pass: config.myPassweord, // Your Gmail app password
       },
     });
 
     const info = await transporter.sendMail({
-      from: "almarjan366@gmail.com",
+      from:config.myEmail,
       to: toEmail,
       subject: "OTP",
       text: content,
@@ -43,14 +43,14 @@ async function sendWelcomeEmail(email, name) {
     // Configure your email service provider here
     service: "Gmail",
     auth: {
-      user: "almarjan366@gmail.com", // Your Gmail address
-      pass: "rzll zpcw vtkj fosi",
+      user: config.myEmail, // Your Gmail address
+      pass: config.myPassweord,
     },
   });
 
   // Email message options
   const mailOptions = {
-    from: "almarjan366@gmail.com",
+    from: config.myEmail,
     to: email,
     subject: "Welcome to Marjan Store",
     text: `Hello ${name}, Welcome to Marjan Store! We are glad to have you onboard.`,
@@ -83,6 +83,41 @@ exports.signUp = async (req, res) => {
     res.status(400).json({ message: "An error occurred while registering" });
   }
 };
+exports.changePassword = async (req, res) => {
+  const { email, currentPassword, newPassword, confirmPassword } = req.body;
+  try {
+    // Find the user by email
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    // Check if the current password matches the stored password
+    const isPasswordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isPasswordMatch) {
+      return res.status(401).json({ message: "Incorrect current password" });
+    }
+    // Check if the new password and confirm password match
+    if (newPassword !== confirmPassword) {
+      return res
+        .status(400)
+        .json({ message: "New password and confirm password do not match" });
+    }
+    // Hash the new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    // Update the user's password
+    user.password = hashedNewPassword;
+    await user.save();
+    res.status(200).json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating password" });
+  }
+};
 
 exports.getAllRegisterUser = async (req, res) => {
   try {
@@ -92,7 +127,50 @@ exports.getAllRegisterUser = async (req, res) => {
     res.status(500).json({ err: "No User to show" });
   }
 };
+exports.deleteUser = async (req,res) =>{
+   try {
+   
+     const { userId } = req.body;
 
+     
+     if (!userId) {
+       return res.status(400).json({ message: "User ID is required" });
+     }
+
+    
+     const deletedUser = await User.findByIdAndDelete(userId);
+
+   
+     if (!deletedUser) {
+       return res.status(404).json({ message: "User not found" });
+     }
+
+     res.status(200).json({ message: "User deleted successfully" });
+   } catch (error) {
+     console.error("Error deleting user:", error);
+     res.status(500).json({ message: "Internal Server Error" });
+   }
+}
+exports.deleteSelectedUsers = async (req, res) => {
+  try {
+   
+    const { userIds } = req.body;
+
+    // Check if userIds is not provided or is not an array
+    if (!userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ message: "Invalid user IDs" });
+    }
+
+    // Delete the selected users from the database
+    await User.deleteMany({ _id: { $in: userIds } });
+
+    // Send a success response
+    res.status(200).json({ message: "Selected users deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting selected users:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -208,6 +286,39 @@ exports.AddToCart = async (req, res) => {
       .json({ message: "Product added to cart successfully", user });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+exports.deleteAllCartItems = async (req, res) => {
+  try {
+    const userId = req.user.id; // Extract user ID from the request
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+
+    // Check if the user exists
+    if (!user) {
+      console.log("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Log the user's cart before clearing it
+    console.log("User's cart before clearing:", user.cart);
+
+    // Clear the cart array
+    user.cart = [];
+
+    // Save the updated user document
+    await user.save();
+
+    console.log("All cart items deleted successfully");
+
+    // Respond with success message and updated user document
+    res
+      .status(200)
+      .json({ message: "All cart items deleted successfully", user });
+  } catch (error) {
+    console.error("Error deleting all cart items:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -590,8 +701,8 @@ exports.getUserDetailsAndCoupon = async (req, res) => {
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "almarjan366@gmail.com",
-    pass: "rzll zpcw vtkj fosi",
+    user: config.myEmail,
+    pass: config.myPassweord,
   },
 });
 
@@ -626,7 +737,7 @@ exports.VerifyEmail = async (req, res) => {
 
     // Send the verification code via email
     const mailOptions = {
-      from: "almarjan366@gmail.com",
+      from:config.myEmail,
       to: email,
       subject: "Your Verification Code",
       text: `Your verification code is: ${verificationCode}`,
@@ -709,33 +820,7 @@ exports.recommendProducts = async (req, res) => {
   }
 };
 
-exports.deleteAllCartItems = async (req, res) => {
-  try {
-    const userId = req.user.id;
 
-    // Find the user by ID
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Clear the cart array
-    user.cart = [];
-
-    // Save the updated user document
-    await user.save();
-
-    res
-      .status(200)
-      .json({ message: "All cart items deleted successfully", user });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
-  }
-};
 // Add to Wishlist API
 exports.addToWishlist = async (req, res) => {
   try {
@@ -851,6 +936,166 @@ exports.getWishlist = async (req, res) => {
     res.status(200).json({ wishlist: user.wishlist });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+exports.getUserOrderHistory = async (req, res) => {
+  try {
+    const userId = req.user.id; // Extract user ID from the request
+
+    // Find the user by ID and populate the orderHistory field with actual order documents
+    const user = await User.findById(userId).populate("orderHistory");
+
+    if (!user) {
+      console.error("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Extract only the orderHistory from the populated user document
+    const orderHistory = user.orderHistory || []; // If orderHistory is null or undefined, default to an empty array
+
+    res.status(200).json(orderHistory);
+  } catch (error) {
+    console.error("Error fetching user order history:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+exports.postUserAddress = async (req, res) => {
+  try {
+    // Extract user ID from the request (assuming it's stored in req.user.id)
+    const userId = req.user.id;
+
+    // Retrieve address details from the request body
+    const {
+      email,
+      firstName,
+      lastName,
+      country,
+      address,
+      city,
+      postalCode,
+      phoneNumber,
+    } = req.body;
+
+    // Create a new address object
+    const newAddress = {
+      email,
+      firstName,
+      lastName,
+      country,
+      address,
+      city,
+      postalCode,
+      phoneNumber,
+    };
+
+    // Find the user by ID and push the new address to the addresses array
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.addresses.push(newAddress);
+
+    // Save the updated user document
+    await user.save();
+
+    // Respond with the newly created address object
+    res.status(201).json(newAddress);
+  } catch (error) {
+    console.error("Error saving user address:", error);
+    res.status(500).json({ error: "Failed to save user address" });
+  }
+};
+
+
+exports.getUserAddresses = async (req, res) => {
+  try {
+    // Extract user ID from the request (assuming it's stored in req.user.id)
+    const userId = req.user.id;
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Return the addresses array from the user document
+    res.status(200).json(user.addresses);
+  } catch (error) {
+    console.error("Error fetching user addresses:", error);
+    res.status(500).json({ error: "Failed to fetch user addresses" });
+  }
+};
+
+exports.deleteUserAddress = async (req, res) => {
+  try {
+    // Extract user ID from the request (assuming it's stored in req.user.id)
+    const userId = req.user.id;
+
+    // Extract address ID from the request parameters
+    const addressId = req.params.addressId;
+    console.log("Address ID to delete:", addressId); // Add this line
+
+    // Update the user document to remove the address by its ID
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId },
+      { $pull: { addresses: { _id: addressId } } },
+      { new: true } // To return the updated document
+    );
+
+    // Check if the user exists
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if the address was found and deleted
+    if (
+      !updatedUser.addresses.find(
+        (address) => address._id.toString() === addressId
+      )
+    ) {
+      return res.status(404).json({ error: "Address not found" });
+    }
+
+    // Respond with success message
+    res.status(200).json({ message: "Address deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user address:", error);
+    res.status(500).json({
+      error: "Failed to delete user address. Internal server error occurred.",
+    });
+  }
+};
+
+
+exports.getUserOrderHistory = async (req, res) => {
+  try {
+    const userId = req.body.userId; // Extract user ID from the request body
+
+    if (!userId) {
+      console.error("User ID is missing in the request body");
+      return res
+        .status(400)
+        .json({ message: "User ID is missing in the request body" });
+    }
+
+    // Find the user by ID and populate the orderHistory field with actual order documents
+    const user = await User.findById(userId).populate("orderHistory");
+
+    if (!user) {
+      console.error("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Extract only the orderHistory from the populated user document
+    const orderHistory = user.orderHistory || []; // If orderHistory is null or undefined, default to an empty array
+
+    res.status(200).json(orderHistory);
+  } catch (error) {
+    console.error("Error fetching user order history:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

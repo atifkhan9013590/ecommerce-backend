@@ -1,22 +1,17 @@
-// models/admin.js
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const { Schema } = mongoose;
 
-const profilePictureSchema = new Schema({
-    data: Buffer,
-    contentType: String,
-});
-
 const adminSchema = new Schema({
-    userName: String,
-    email: { type: String, unique: true, required: true },
-    password: String,
-    profile: {
-        picture: profilePictureSchema,
-        name: String,
-    },
-    resetPasswordOTP: { type: Number, default: null } // Add resetPasswordOTP field with default value null
+  userName: String,
+  email: { type: String, unique: true, required: true },
+  password: String,
+  profile: {
+    picture: { type: String, default: "" }, // Initialize as empty string
+    name: String,
+  },
+  resetPasswordOTP: { type: Number, default: null },
 });
 
-const Admin = mongoose.model('Admin', adminSchema);
+
+const Admin = mongoose.model("Admin", adminSchema);
 module.exports = Admin;

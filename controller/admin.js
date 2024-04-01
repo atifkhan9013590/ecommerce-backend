@@ -11,13 +11,13 @@ async function sendOrderOTPEmailGmail(toEmail, content) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "almarjan366@gmail.com", // Your Gmail address
-        pass: "rzll zpcw vtkj fosi", // Your Gmail app password
+        user: config.myEmail, // Your Gmail address
+        pass:config.myPassweord, // Your Gmail app password
       },
     });
 
     const info = await transporter.sendMail({
-      from: "almarjan366@gmail.com",
+      from: config.myEmail,
       to: toEmail,
       subject: "OTP",
       text: content,
@@ -35,39 +35,37 @@ const generateFourDigitOTP = () => {
 // Multer middleware for handling form data
 
 exports.adminSignUp = async (req, res) => {
-    const { userName, email, password } = req.body;
-  
-    try {
-      const existingAdmin = await Admin.findOne({ email });
-  
-      if (existingAdmin) {
-        return res.status(400).json({ message: 'Email already exists' });
-      }
-  
-      const hashedPassword = await bcrypt.hash(password, 10);
-  
-      const newAdmin = new Admin({
-        userName,
-        email,
-        password: hashedPassword,
-        profile: {
-          picture: {
-            data: null, // Initialize to whatever default value you want
-            contentType: null, // Initialize to whatever default value you want
-          },
-          name: '', // Initialize to whatever default value you want
-        },
-      });
-  
-      await newAdmin.save();
-  
-      res.status(201).json({ message: 'Admin registered successfully' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'An error occurred while registering admin' });
+  const { userName, email, password } = req.body;
+
+  try {
+    const existingAdmin = await Admin.findOne({ email });
+
+    if (existingAdmin) {
+      return res.status(400).json({ message: "Email already exists" });
     }
-  };
-  
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newAdmin = new Admin({
+      userName,
+      email,
+      password: hashedPassword,
+      profile: {
+        picture: "", // Initialize as empty string
+        name: "", // Initialize to whatever default value you want
+      },
+    });
+
+    await newAdmin.save();
+
+    res.status(201).json({ message: "Admin registered successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while registering admin" });
+  }
+};
 
 exports.adminLogin = async (req, res) => {
   const { email, password } = req.body;
@@ -101,32 +99,34 @@ exports.adminLogin = async (req, res) => {
     res.status(500).json({ message: 'An error occurred during admin authentication' });
   }
 };
-
 exports.updateAdminProfile = async (req, res) => {
-    const { name } = req.body;
-    const adminId = req.admin.id;
-  
-    try {
-      const admin = await Admin.findById(adminId);
-  
-      if (!admin) {
-        return res.status(404).json({ message: 'Admin not found' });
-      }
-  
-      if (req.file) {
-        admin.profile.picture.data = req.file.buffer;
-        admin.profile.picture.contentType = req.file.mimetype;
-      }
-  
-      admin.profile.name = name;
-  
-      await admin.save();
-  
-      res.status(200).json({ message: 'Admin profile updated successfully', admin: admin.profile });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'An error occurred while updating admin profile' });
+  const { name, picture } = req.body;
+  const adminId = req.admin.id;
+
+  try {
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
     }
+
+    // Save the picture data as a string directly in the database
+    admin.profile.picture = picture;
+
+    admin.profile.name = name;
+
+    await admin.save();
+
+    res.status(200).json({
+      message: "Admin profile updated successfully",
+      admin: admin.profile,
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating admin profile" });
+  }
 };
 
 exports.adminProfile = async(req,res)=>{
@@ -190,13 +190,18 @@ exports.forgotPassword = async (req, res) => {
 
 
 exports.resetPassword = async (req, res) => {
-  const { email, newPassword } = req.body;
+  const { email, newPassword, confirmPassword } = req.body;
 
   try {
     const admin = await Admin.findOne({ email });
 
     if (!admin) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "Passwords do not match" });
     }
 
     // Update the password
