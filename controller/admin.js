@@ -1,7 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const Admin = require('../model/admin.js'); // Make sure to provide the correct path
-const config = require('../config');
+
 const nodemailer = require("nodemailer");
 require("dotenv").config(); 
 

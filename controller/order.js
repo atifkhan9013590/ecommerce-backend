@@ -7,8 +7,8 @@ const OrderNotification = require('../model/notification.js');
 
 
 const nodemailer = require("nodemailer");
-const config = require("../config.js");
-const stripe = require("stripe")(config.stripeSecretKey);
+
+
 const twilio = require('twilio');
 require("dotenv").config(); 
 

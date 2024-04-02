@@ -1,13 +1,13 @@
 const express = require("express");
 const http = require("http");
-const cors = require("cors"); // Import the cors middleware
+const cors = require("cors"); 
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const app = express();
 const Router = require("./routes/product.js");
 const UserRouter = require("./routes/user.js");
 const RatingRouter = require("./routes/rating.js");
-const OrderRouter = require("./routes/order.js"); // Import OrderRouter directly
+const OrderRouter = require("./routes/order.js"); 
 const CouponRouter = require("./routes/coupon.js");
 const adminRouter = require("./routes/admin.js");
 const CategoryRouter = require("./routes/category.js");
