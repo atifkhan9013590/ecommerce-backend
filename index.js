@@ -25,18 +25,16 @@ const ShippingRouter =require('./routes/shipping')
 const OrderStatusRouter =require('./routes/orderstatus.js')
 require("dotenv").config();
 
-// MongoDB connection
-const DB = "mongodb://localhost:27017/ecommerce";
+
+const DB = process.env.DB_URL;
+;
 
   
 async function main() {
-  await mongoose.connect(
-    DB
-  );
+  await mongoose.connect(DB);
   console.log("database connected");
 }
 main().catch((err) => console.log(err));
-
 // Body parser config
 const bodyParserConfig = {
   limit: "50mb", // Set a value appropriate for your use case

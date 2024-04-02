@@ -9,19 +9,20 @@ const Coupon = require("../model/coupon");
 
 const nodemailer = require("nodemailer");
 const mongoose = require("mongoose");
+require("dotenv").config(); 
 
 async function sendOrderOTPEmailGmail(toEmail, content) {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: config.myEmail, // Your Gmail address
-        pass: config.myPassweord, // Your Gmail app password
+        user:process.env.MY_EMAIL, // Your Gmail address
+        pass: process.env.MY_PASSWORD, // Your Gmail app password
       },
     });
 
     const info = await transporter.sendMail({
-      from:config.myEmail,
+      from: process.env.MY_EMAIL,
       to: toEmail,
       subject: "OTP",
       text: content,
@@ -43,14 +44,14 @@ async function sendWelcomeEmail(email, name) {
     // Configure your email service provider here
     service: "Gmail",
     auth: {
-      user: config.myEmail, // Your Gmail address
-      pass: config.myPassweord,
+      user: process.env.MY_EMAIL, // Your Gmail address
+      pass: process.env.MY_PASSWORD,
     },
   });
 
   // Email message options
   const mailOptions = {
-    from: config.myEmail,
+    from: process.env.MY_EMAIL,
     to: email,
     subject: "Welcome to Marjan Store",
     text: `Hello ${name}, Welcome to Marjan Store! We are glad to have you onboard.`,
@@ -202,9 +203,13 @@ exports.login = async (req, res) => {
 
     res.json({
       message: "Authentication successful",
-      token: jwt.sign({ email: user.email, id: user._id }, config.secretKey, {
-        expiresIn: "1h",
-      }),
+      token: jwt.sign(
+        { email: user.email, id: user._id },
+        process.env.SECRET_KEY,
+        {
+          expiresIn: "1h",
+        }
+      ),
       user: {
         email: user.email,
         password: user.password,
@@ -701,8 +706,8 @@ exports.getUserDetailsAndCoupon = async (req, res) => {
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: config.myEmail,
-    pass: config.myPassweord,
+    user: process.env.MY_EMAIL,
+    pass: process.env.MY_PASSWORD,
   },
 });
 
@@ -737,7 +742,7 @@ exports.VerifyEmail = async (req, res) => {
 
     // Send the verification code via email
     const mailOptions = {
-      from:config.myEmail,
+      from: process.env.MY_EMAIL,
       to: email,
       subject: "Your Verification Code",
       text: `Your verification code is: ${verificationCode}`,
@@ -800,18 +805,41 @@ exports.recommendProducts = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // Extract unique categories from the order history products
+    const categories = user.orderHistory.flatMap((order) =>
+      order.products.map((product) => product.category)
+    );
+    const uniqueCategories = [...new Set(categories)];
+
+    // Find products with the same unique category and excluding products from the user's order history
+    const recommendedProducts = await Product.find({
+      category: { $in: uniqueCategories },
+      _id: {
+        $nin: user.orderHistory.flatMap((order) =>
+          order.products.map((product) => product._id)
+        ),
+      },
+    });
+
     // Extract unique descriptions from the order history products
     const descriptions = user.orderHistory.flatMap((order) =>
       order.products.map((product) => product.description)
     );
     const uniqueDescriptions = [...new Set(descriptions)];
 
-    // Find products with descriptions that match those in the order history
-    const recommendedProducts = await Product.find({
+    // Exclude products with descriptions that match those in the order history
+    const productsToExclude = await Product.find({
       description: { $in: uniqueDescriptions },
     });
 
-    res.status(200).json({ recommendedProducts });
+    const filteredProducts = recommendedProducts.filter(
+      (product) =>
+        !productsToExclude.some((excludedProduct) =>
+          excludedProduct._id.equals(product._id)
+        )
+    );
+
+    res.status(200).json({ recommendedProducts: filteredProducts });
   } catch (error) {
     console.error(error);
     res
@@ -819,6 +847,8 @@ exports.recommendProducts = async (req, res) => {
       .json({ message: "Internal Server Error", error: error.message });
   }
 };
+
+
 
 
 // Add to Wishlist API
@@ -1071,16 +1101,9 @@ exports.deleteUserAddress = async (req, res) => {
 };
 
 
-exports.getUserOrderHistory = async (req, res) => {
+exports.recommendProductsBasedOnOrderHistory = async (req, res) => {
   try {
-    const userId = req.body.userId; // Extract user ID from the request body
-
-    if (!userId) {
-      console.error("User ID is missing in the request body");
-      return res
-        .status(400)
-        .json({ message: "User ID is missing in the request body" });
-    }
+    const userId = req.user.id; // Extract user ID from the request parameters
 
     // Find the user by ID and populate the orderHistory field with actual order documents
     const user = await User.findById(userId).populate("orderHistory");
@@ -1090,12 +1113,35 @@ exports.getUserOrderHistory = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Extract only the orderHistory from the populated user document
-    const orderHistory = user.orderHistory || []; // If orderHistory is null or undefined, default to an empty array
+    // Extract product IDs from the current user's order history
+    const productIdsInOrderHistory = user.orderHistory.map(
+      (order) => order.product
+    );
 
-    res.status(200).json(orderHistory);
+    // If user has no order history, return an empty array of recommended products
+    if (productIdsInOrderHistory.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Find categories of products in the current user's order history
+    const categoriesInOrderHistory = await Product.distinct("category", {
+      _id: { $in: productIdsInOrderHistory },
+    });
+
+    // Find products not present in the current user's order history
+    const recommendedProducts = await Product.find({
+      category: { $nin: categoriesInOrderHistory }, // Exclude categories present in user's order history
+      _id: { $nin: productIdsInOrderHistory }, // Exclude products already in user's order history
+    });
+
+    res.status(200).json(recommendedProducts);
   } catch (error) {
-    console.error("Error fetching user order history:", error.message);
+    console.error(
+      "Error recommending products based on order history:",
+      error.message
+    );
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
+
+

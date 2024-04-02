@@ -1,5 +1,6 @@
 const jwt = require ('jsonwebtoken');
 const config = require('../config');
+require("dotenv").config(); 
 
 exports.adminAuthMiddleware = async (req, res, next) => {
   const token = req.headers.authorization;
@@ -9,7 +10,7 @@ exports.adminAuthMiddleware = async (req, res, next) => {
   }
 
   try {
-    const decoded = await jwt.verify(token, config.adminSecretKey);
+    const decoded = await jwt.verify(token, process.env.ADMIN_SECRET_KEY);
     console.log('Decoded Payload:', decoded);
   
     req.admin = decoded;

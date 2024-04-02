@@ -10,6 +10,7 @@ const nodemailer = require("nodemailer");
 const config = require("../config.js");
 const stripe = require("stripe")(config.stripeSecretKey);
 const twilio = require('twilio');
+require("dotenv").config(); 
 
 
 
@@ -76,13 +77,13 @@ async function sendOrderConfirmationEmailGmail(toEmail, content, attachments) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: config.myEmail,
-        pass: config.myPassweord,
+        user: process.env.MY_EMAIL,
+        pass: process.env.MY_PASSWORD,
       },
     });
 
     const mailOptions = {
-      from: config.myEmail,
+      from: process.env.MY_EMAIL,
       to: toEmail,
       subject: "Order Confirmation",
       html: content,
@@ -377,13 +378,13 @@ async function sendOrderStatusEmail(userEmail, status) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: config.myEmail, // Your Gmail address
-        pass: config.myPassweord,      // Your Gmail app password
+        user: process.env.MY_EMAIL, // Your Gmail address
+        pass: process.env.MY_PASSWORD, // Your Gmail app password
       },
     });
 
     const mailOptions = {
-      from: config.myEmail,
+      from: process.env.MY_EMAIL,
       to: userEmail,
       subject: "Order Status Update",
       text: `Your order status has been updated to: ${status}`,
@@ -577,13 +578,13 @@ async function sendCancellationEmail(userEmail) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: config.myEmail, // Your Gmail address
-        pass: config.myPassweord, // Your Gmail app password
+        user: process.env.MY_EMAIL, // Your Gmail address
+        pass: process.env.MY_PASSWORD, // Your Gmail app password
       },
     });
 
     const mailOptions = {
-      from: config.myEmail,
+      from: process.env.MY_EMAIL,
       to: userEmail,
       subject: "Order Cancellation",
       text: "Your order has been cancelled.",

@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const Admin = require('../model/admin.js'); // Make sure to provide the correct path
 const config = require('../config');
 const nodemailer = require("nodemailer");
+require("dotenv").config(); 
 
 
 
@@ -11,13 +12,13 @@ async function sendOrderOTPEmailGmail(toEmail, content) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: config.myEmail, // Your Gmail address
-        pass:config.myPassweord, // Your Gmail app password
+        user: process.env.MY_EMAIL, // Your Gmail address
+        pass:process.env.MY_PASSWORD, // Your Gmail app password
       },
     });
 
     const info = await transporter.sendMail({
-      from: config.myEmail,
+      from: process.env.MY_EMAIL,
       to: toEmail,
       subject: "OTP",
       text: content,
@@ -83,7 +84,11 @@ exports.adminLogin = async (req, res) => {
       return res.status(401).json({ message: 'Password is incorrect' });
     }
 
-    const token = jwt.sign({ email: admin.email, id: admin._id }, config.adminSecretKey, { expiresIn: '1h' });
+    const token = jwt.sign(
+      { email: admin.email, id: admin._id },
+      process.env.ADMIN_SECRET_KEY,
+      { expiresIn: "1h" }
+    );
     console.log(token);
     res.json({
       message: 'Authentication successful',
