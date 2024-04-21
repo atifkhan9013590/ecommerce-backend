@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const User = require("../model/user");
-
+const config = require("../config");
 
 const Product = require("../model/product");
 
@@ -60,23 +60,50 @@ async function sendWelcomeEmail(email, name) {
   // Send the email
   await transporter.sendMail(mailOptions);
 }
+const sendOTP = async (email, otp) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.MY_EMAIL, // Your email username
+        pass: process.env.MY_PASSWORD, // Your email password
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.MY_EMAIL,
+      to: email,
+      subject: "Verification OTP",
+      text: `Your OTP for email verification is: ${otp}`,
+    };
+
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
+
+// Sign up controller
 exports.signUp = async (req, res) => {
-  const { email, name, password } = req.body;
+  const { email, name, password, lastName } = req.body;
   try {
     const ifExistUser = await User.findOne({ email: email.toLowerCase() });
     if (ifExistUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
     const hashpassword = await bcrypt.hash(password, 10);
+    const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
     const newUser = new User({
       email: email.toLowerCase(),
       name,
+      lastName,
       password: hashpassword,
+      otp,
+      otpExpiresAt: Date.now() + 600000, // OTP expires in 10 minutes (600000 milliseconds)
     });
     await newUser.save();
 
-    // Send welcome email to the user
-    await sendWelcomeEmail(email.toLowerCase(), name);
+    await sendOTP(email.toLowerCase(), otp);
 
     res.status(201).json({ message: "User Registered" });
   } catch (error) {
@@ -84,6 +111,49 @@ exports.signUp = async (req, res) => {
     res.status(400).json({ message: "An error occurred while registering" });
   }
 };
+
+exports.verifyOTPS = async (req, res) => {
+  const { email, otp } = req.body;
+  try {
+    const user = await User.findOne({ email: email.toLowerCase(), otp });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid OTP" });
+    }
+    if (user.otpExpiresAt < Date.now()) {
+      return res.status(400).json({ message: "OTP expired" });
+    }
+    user.verify = true;
+    await user.save();
+    res.status(200).json({ message: "Account verified successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ message: "An error occurred while verifying OTP" });
+  }
+};
+exports.resendOTP = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate a new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+    user.otp = otp;
+    user.otpExpiresAt = Date.now() + 600000; // OTP expires in 10 minutes (600000 milliseconds)
+    await user.save();
+
+    // Send the new OTP to the user's email
+    await sendOTP(email.toLowerCase(), otp);
+
+    res.status(200).json({ message: "OTP resent successfully" });
+  } catch (error) {
+    console.error("Error resending OTP:", error);
+    res.status(500).json({ message: "An error occurred while resending OTP" });
+  }
+};
+
 exports.changePassword = async (req, res) => {
   const { email, currentPassword, newPassword, confirmPassword } = req.body;
   try {
@@ -182,6 +252,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Email is incorrect" });
     }
 
+     if (!user.verify) {
+       return res.status(402).json({ message: "Account not verified" });
+     }
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -225,6 +298,8 @@ exports.login = async (req, res) => {
       .json({ message: "An error occurred during authentication" });
   }
 };
+
+
 
 exports.getUserEmail = async (req, res) => {
   try {
@@ -553,6 +628,36 @@ exports.forgotPassword = async (req, res) => {
       error: error.message,
       emailFound: true,
     });
+  }
+};
+
+exports.resendOTPS = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Generate a new four-digit OTP
+    const newOTP = generateFourDigitOTP();
+
+    // Update the user's resetPasswordOTP field with the new OTP
+    user.resetPasswordOTP = newOTP;
+    await user.save();
+
+    // Send the new OTP via email
+    const emailContent = `Your new OTP for password reset is: ${newOTP}`;
+    await sendOrderOTPEmailGmail(email, emailContent);
+
+    res.status(200).json({ message: "OTP resent successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
   }
 };
 exports.resetPassword = async (req, res) => {
@@ -971,7 +1076,10 @@ exports.getWishlist = async (req, res) => {
 };
 exports.getUserOrderHistory = async (req, res) => {
   try {
-    const userId = req.user.id; // Extract user ID from the request
+    console.log("Request Body:", req.body); // Log the request body to see the ID
+    const userId = req.params.userId;
+
+    console.log("User:", req.user); // Log the user object
 
     // Find the user by ID and populate the orderHistory field with actual order documents
     const user = await User.findById(userId).populate("orderHistory");
@@ -1064,31 +1172,31 @@ exports.deleteUserAddress = async (req, res) => {
   try {
     // Extract user ID from the request (assuming it's stored in req.user.id)
     const userId = req.user.id;
+    console.log("Authenticated User ID:", userId); // Log the authenticated user ID
 
     // Extract address ID from the request parameters
     const addressId = req.params.addressId;
-    console.log("Address ID to delete:", addressId); // Add this line
+    console.log("Address ID to Delete:", addressId); // Log the address ID to be deleted
 
-    // Update the user document to remove the address by its ID
-    const updatedUser = await User.findOneAndUpdate(
-      { _id: userId },
-      { $pull: { addresses: { _id: addressId } } },
-      { new: true } // To return the updated document
-    );
-
-    // Check if the user exists
-    if (!updatedUser) {
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Check if the address was found and deleted
-    if (
-      !updatedUser.addresses.find(
-        (address) => address._id.toString() === addressId
-      )
-    ) {
+    // Check if the address exists in the user's addresses array
+    const addressIndex = user.addresses.findIndex(
+      (address) => address._id.toString() === addressId
+    );
+    if (addressIndex === -1) {
       return res.status(404).json({ error: "Address not found" });
     }
+
+    // Remove the address from the user's addresses array
+    user.addresses.splice(addressIndex, 1);
+
+    // Save the updated user document
+    await user.save();
 
     // Respond with success message
     res.status(200).json({ message: "Address deleted successfully" });
@@ -1099,6 +1207,9 @@ exports.deleteUserAddress = async (req, res) => {
     });
   }
 };
+
+
+
 
 
 exports.recommendProductsBasedOnOrderHistory = async (req, res) => {
@@ -1145,3 +1256,51 @@ exports.recommendProductsBasedOnOrderHistory = async (req, res) => {
 };
 
 
+exports.updateUserAddress = async (req, res) => {
+  try {
+    // Extract user ID from the request (assuming it's stored in req.user.id)
+    const userId = req.user.id;
+    console.log("Authenticated User ID:", userId); // Log the authenticated user ID
+
+    // Extract address ID from the request parameters
+    const addressId = req.params.addressId;
+    console.log("Address ID to Update:", addressId); // Log the address ID to be updated
+
+    // Extract updated address details from the request body
+    const { city, postalCode, phoneNumber } = req.body;
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Check if the address exists in the user's addresses array
+    const address = user.addresses.id(addressId);
+    if (!address) {
+      return res.status(404).json({ error: "Address not found" });
+    }
+
+    // Update specific fields of the address
+    if (city) {
+      address.city = city;
+    }
+    if (postalCode) {
+      address.postalCode = postalCode;
+    }
+    if (phoneNumber) {
+      address.phoneNumber = phoneNumber;
+    }
+
+    // Save the updated user document
+    await user.save();
+
+    // Respond with success message
+    res.status(200).json({ message: "Address updated successfully" });
+  } catch (error) {
+    console.error("Error updating user address:", error);
+    res.status(500).json({
+      error: "Failed to update user address. Internal server error occurred.",
+    });
+  }
+};

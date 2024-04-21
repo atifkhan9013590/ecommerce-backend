@@ -5,6 +5,8 @@ const authMiddleware=require('../middleware/authMiddleware.js')
 
 
 UserRouter.post("/signup", Userdb.signUp)
+.post('/verify',Userdb.verifyOTPS)
+.post('/Resend',Userdb.resendOTP)
   .get("/signup", Userdb.getAllRegisterUser)
   .post("/login", Userdb.login)
   .get("/login/:email", Userdb.getUserEmail)
@@ -16,6 +18,7 @@ UserRouter.post("/signup", Userdb.signUp)
   .get("/profile", authMiddleware.authMiddleware, Userdb.getUserProfile)
   .post("/DeleteUser", Userdb.deleteUser)
   .post("/forgot-password", Userdb.forgotPassword)
+  .post('/ResenduserOtp',Userdb.resendOTPS)
   .post("/reset-password", Userdb.resetPassword)
   .post("/verify-otp", Userdb.verifyOTP)
   .delete("/orders/:orderId", authMiddleware.authMiddleware, Userdb.deleteOrder)
@@ -60,11 +63,7 @@ UserRouter.post("/signup", Userdb.signUp)
     authMiddleware.authMiddleware,
     Userdb.deleteAllCartItems
   )
-  .get(
-    "/orderHistory",
-    authMiddleware.authMiddleware,
-    Userdb.getUserOrderHistory
-  )
+  .post("/orderHistory/:userId", Userdb.getUserOrderHistory)
   .post("/address", authMiddleware.authMiddleware, Userdb.postUserAddress)
   .get("/address", authMiddleware.authMiddleware, Userdb.getUserAddresses)
   .delete(
@@ -72,11 +71,8 @@ UserRouter.post("/signup", Userdb.signUp)
     authMiddleware.authMiddleware,
     Userdb.deleteUserAddress
   )
-  .get(
-    "/recommend-products",
-    authMiddleware.authMiddleware,
-    Userdb.recommendProductsBasedOnOrderHistory
-  );
+  .put("/address/:addressId", authMiddleware.authMiddleware, Userdb.updateUserAddress);
+  
 
   
 

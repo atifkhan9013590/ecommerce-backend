@@ -309,7 +309,7 @@ exports.getALLproductsubCategory =async (req,res) => {
 exports.sortAlphabeticallyAZ = async (req, res) => {
   try {
     const { category } = req.params;
-    const products = await Product.find({ category }).sort({ title: 1 });
+    const products = await Product.find({ category }).sort({ description: 1 });
     res.json(products);
   } catch (error) {
     console.error("Error sorting products alphabetically A to Z:", error);
@@ -320,7 +320,7 @@ exports.sortAlphabeticallyAZ = async (req, res) => {
 exports.sortAlphabeticallyZA = async (req, res) => {
   try {
     const { category } = req.params;
-    const products = await Product.find({ category }).sort({ title: -1 });
+    const products = await Product.find({ category }).sort({ description: -1 });
     res.json(products);
   } catch (error) {
     console.error("Error sorting products alphabetically Z to A:", error);

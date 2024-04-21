@@ -4,7 +4,14 @@ const { Schema } = mongoose;
 const UserSchema = new Schema({
   email: String,
   name: String,
+  lastName: String,
   password: String,
+  verify: {
+    type: Boolean,
+    default: false,
+  },
+  otp: String, // Storing OTP
+  otpExpiresAt: Date, // Expiration timestamp for OTP
   cart: [
     {
       productDetails: {

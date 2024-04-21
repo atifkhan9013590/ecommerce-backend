@@ -35,6 +35,17 @@ adminRouter
   )
   .post("/forget-password", admindb.forgotPassword)
   .post("/reset-password", admindb.resetPassword)
-  .post("/Verify-otp", admindb.verifyOTP);
+  .post("/Verify-otp", admindb.verifyOTP)
+  .get(
+    "/profileadmin",
+    adminAuthMiddleware.adminAuthMiddleware,
+    admindb.getAdminProfile
+  )
+  .put(
+    "/update",
+    adminAuthMiddleware.adminAuthMiddleware,
+    admindb.updateAdminProfile
+  )
+  .post("/change-password",admindb.changePassword);
 
 exports.adminRouter = adminRouter;

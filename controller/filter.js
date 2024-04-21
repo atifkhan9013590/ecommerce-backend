@@ -37,15 +37,24 @@ exports.getCategoriesWithSubcategories = async (req, res) => {
           subcategories: { $addToSet: "$_id.subcategory" },
         },
       },
+      {
+        $project: {
+          category: { $trim: { input: "$_id", chars: '"' } },
+          subcategories: {
+            $map: {
+              input: "$subcategories",
+              as: "subcategory",
+              in: { $trim: { input: "$$subcategory", chars: '"' } },
+            },
+          },
+        },
+      },
+      {
+        $sort: { category: 1 }, // Sort categories alphabetically
+      },
     ]);
 
-    // Format the data as an array of objects with category and subcategories
-    const formattedData = categoriesWithSubcategories.map((item) => ({
-      category: item._id,
-      subcategories: item.subcategories,
-    }));
-
-    res.json(formattedData);
+    res.json(categoriesWithSubcategories);
   } catch (error) {
     console.error("Error fetching categories with subcategories:", error);
     res

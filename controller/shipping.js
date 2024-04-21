@@ -23,16 +23,18 @@ try {
 }
 }
 
-exports.deleteShipping =async (req,res)=>{
-const { id } = req.params;
+exports.deleteShipping = async (req, res) => {
+  const { Id } = req.params;
+  console.log("ID received from frontend:", Id); // Log the ID received from frontend
 
-try {
-  const deletedShipping = await Shipping.findByIdAndDelete(id);
-  if (!deletedShipping) {
-    return res.status(404).json({ message: "Shipping policy not found" });
+  try {
+    const deletedShipping = await Shipping.findByIdAndDelete(Id);
+    if (!deletedShipping) {
+      return res.status(404).json({ message: "Shipping policy not found" });
+    }
+    res.json({ message: "Shipping policy deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-  res.json({ message: "Shipping policy deleted successfully" });
-} catch (error) {
-  res.status(500).json({ message: error.message });
-}
-}
+};
+

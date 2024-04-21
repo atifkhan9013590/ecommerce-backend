@@ -68,6 +68,21 @@ exports.adminSignUp = async (req, res) => {
   }
 };
 
+exports.getAdminProfile = async (req, res) => {
+  try {
+    // Fetch admin profile based on admin ID
+    const admin = await Admin.findById(req.admin.id).select("-password");
+    if (!admin) {
+      return res.status(404).json({ message: "Admin profile not found" });
+    }
+    res.json(admin);
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while fetching admin profile" });
+  }
+};
 exports.adminLogin = async (req, res) => {
   const { email, password } = req.body;
 
@@ -251,6 +266,90 @@ exports.verifyOTP = async (req, res) => {
     } else {
       return res.status(401).json({ message: "Invalid OTP" });
     }
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+exports.updateAdminProfile = async (req, res) => {
+  const { userName, email } = req.body;
+  const adminId = req.admin.id;
+
+  try {
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Update username if provided
+    if (userName) {
+      admin.userName = userName;
+    }
+
+    // Update email if provided
+    if (email) {
+      // Check if the new email is already taken
+      const existingAdmin = await Admin.findOne({ email });
+      if (
+        existingAdmin &&
+        existingAdmin._id.toString() !== admin._id.toString()
+      ) {
+        return res.status(400).json({ message: "Email is already in use" });
+      }
+      admin.email = email;
+    }
+
+    await admin.save();
+
+    res.status(200).json({
+      message: "Admin profile updated successfully",
+      admin: { userName: admin.userName, email: admin.email },
+    });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "An error occurred while updating admin profile" });
+  }
+};
+
+
+
+exports.changePassword = async (req, res) => {
+  const { email, oldPassword, newPassword, confirmPassword } = req.body;
+
+  try {
+    const admin = await Admin.findOne({ email });
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(
+      oldPassword,
+      admin.password
+    );
+    if (!isOldPasswordValid) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    // Check if new passwords match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: "New passwords do not match" });
+    }
+
+    // Update the password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    admin.password = hashedPassword;
+
+    await admin.save();
+
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     console.error(error);
     res

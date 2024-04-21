@@ -26,8 +26,9 @@ exports.getLocation = async (req,res)=>{
 }
 
 exports.deleteLocation = async (req,res)=>{
+   const { Id } = req.params;
     try {
-      const deletedLocation = await Location.findByIdAndDelete(req.params.id);
+      const deletedLocation = await Location.findByIdAndDelete(Id);
       if (!deletedLocation) {
         return res.status(404).json({ message: "Location not found" });
       }

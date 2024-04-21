@@ -1,12 +1,46 @@
-const Coupon =require('../model/coupon.js')
+const Coupon =require('../model/coupon.js');
+const User =require('../model/user.js')
+const nodemailer = require("nodemailer");
+require("dotenv").config(); 
+
+const sendEmailToUsers = async (coupon) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.MY_EMAIL, // Your Gmail address
+        pass: process.env.MY_PASSWORD, // Your Gmail app password
+      },
+    });
+
+    const users = await User.find(); // Fetch users from your database
+
+    const promises = users.map(async (user) => {
+      const info = await transporter.sendMail({
+        from: process.env.MY_EMAIL,
+        to: user.email,
+        subject: "New Coupon Available!",
+        text: `Hello ${user.name},\n\nA new coupon (${coupon.code}) is available. Get a ${coupon.discountPercentage}% discount on your purchases in category '${coupon.category}'.\n\nRegards,\nYour App Team`,
+      });
+      console.log("Email sent to:", user.email);
+      return info;
+    });
+
+    await Promise.all(promises);
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
 
 exports.createCoupon = async (req, res) => {
   try {
-    const { code, discountPercentage, expirationDate, category} = req.body;
-    
+    const { code, discountPercentage, expirationDate, category } = req.body;
+
     // Validate required fields
     if (!code || !discountPercentage || !expirationDate) {
-      return res.status(400).json({ error: 'Please provide code, discount percentage, and expiration date' });
+      return res.status(400).json({
+        error: "Please provide code, discount percentage, and expiration date",
+      });
     }
 
     // Create the coupon with specified fields
@@ -14,16 +48,18 @@ exports.createCoupon = async (req, res) => {
       code,
       discountPercentage,
       expirationDate,
-      category: category|| [], // Set categories to an empty array if not provided
+      category: category || [], // Set categories to an empty array if not provided
     });
-    
+
+    // Send email to users
+    await sendEmailToUsers(coupon);
+
     res.status(201).json(coupon);
   } catch (error) {
-    console.error('Error creating coupon:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error creating coupon:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
-
 exports.getCoupon=async(req,res)=>{
   try {
     const coupons = await Coupon.find();
@@ -75,14 +111,10 @@ exports.applyCoupon = async (req, res) => {
     }
 
     if (!isApplicable) {
-      return res
-        .status(400)
-        .json({
-          error: "Coupon is not applicable to any category in the order",
-        });
+      return res.status(400).json({
+        error: "Coupon is not applicable to any category in the order",
+      });
     }
-
-    // You can add additional validation logic if needed
 
     // Mark the coupon as applied
     appliedCoupons.push(couponCode);
@@ -135,21 +167,24 @@ exports.getCouponById = async (req, res) => {
 exports.updateCoupon = async (req, res) => {
   try {
     const { id } = req.params;
-    const { code, discountPercentage, expirationDate, description } = req.body;
+    const { code, discountPercentage, expirationDate, category } = req.body; // Change description to category
+    console.log("Update coupon payload", req.body);
 
     const updatedCoupon = await Coupon.findByIdAndUpdate(
       id,
-      { code, discountPercentage, expirationDate, description }, // Include description in the update object
+      { code, discountPercentage, expirationDate, category }, // Change description to category
       { new: true }
     );
 
     if (!updatedCoupon) {
-      return res.status(404).json({ error: 'Coupon not found' });
+      return res.status(404).json({ error: "Coupon not found" });
     }
 
-    res.status(200).json({ message: 'Coupon updated successfully', updatedCoupon });
+    res
+      .status(200)
+      .json({ message: "Coupon updated successfully", updatedCoupon });
   } catch (error) {
-    console.error('Error updating coupon:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error updating coupon:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };

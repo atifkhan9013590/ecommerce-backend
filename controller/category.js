@@ -3,6 +3,7 @@ const Category = model;
 
 exports.createCategory = async (req, res) => {
   const { category, mainCategoryimg } = req.body;
+    console.log("post Request Body", req.body);
   try {
     // Check if category with the same name already exists
     const existingCategory = await Category.findOne({ category });
@@ -55,6 +56,7 @@ exports.deleteCategoryById = async (req, res) => {
 exports.updateCategoryById = async (req, res) => {
   const categoryId = req.params.id;
   const { category, mainCategoryimg } = req.body;
+  console.log("update Request Body", req.body);
 
   try {
     // Find the category by ID and update its data
@@ -68,7 +70,9 @@ exports.updateCategoryById = async (req, res) => {
       return res.status(404).json({ error: "Category not found" });
     }
 
-    res.status(200).json({ message: "Category updated successfully", updatedCategory });
+    res
+      .status(200)
+      .json({ message: "Category updated successfully", updatedCategory });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal Server Error" });
