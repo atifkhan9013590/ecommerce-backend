@@ -6,28 +6,21 @@ const multer = require("multer");
 const path = require("path");
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-     cb(null, "uploads/");  // Upload images to the 'uploads' folder
+  destination: function (req, file, cb) {
+    cb(null, "uploads/"); // Destination folder for storing profile pictures
   },
-  filename: (req, file, cb) => {
-    // Use the current timestamp as a unique filename
-    const uniquePrefix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const extension = path.extname(file.originalname);
-    cb(null, uniquePrefix + extension);
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "-" + file.originalname); // Unique filename
   },
 });
 
+// Multer upload configuration
 const upload = multer({ storage: storage });
 
 adminRouter
   .post("/Signup", admindb.adminSignUp)
   .post("/Login", admindb.adminLogin)
-  .post(
-    "/update-profile",
-    upload.single("picture"),
-    adminAuthMiddleware.adminAuthMiddleware,
-    admindb.updateAdminProfile
-  )
+
   .get(
     "/profile",
     adminAuthMiddleware.adminAuthMiddleware,
@@ -36,6 +29,7 @@ adminRouter
   .post("/forget-password", admindb.forgotPassword)
   .post("/reset-password", admindb.resetPassword)
   .post("/Verify-otp", admindb.verifyOTP)
+  .post("/resend", admindb.ResendOtp)
   .get(
     "/profileadmin",
     adminAuthMiddleware.adminAuthMiddleware,
@@ -46,6 +40,21 @@ adminRouter
     adminAuthMiddleware.adminAuthMiddleware,
     admindb.updateAdminProfile
   )
-  .post("/change-password",admindb.changePassword);
+  .post("/change-password", admindb.changePassword)
+  .post(
+    "/profile-picture",
+    upload.single("profilePicture"),
+    adminAuthMiddleware.adminAuthMiddleware,
+    admindb.uploadProfilePicture
+  )
+  .get('/getprofilePicture',adminAuthMiddleware.adminAuthMiddleware,admindb.getProfilePicture)
+
+  .post(
+    "/UpdatePicture",
+    upload.single("profilePicture"),
+    adminAuthMiddleware.adminAuthMiddleware,
+    admindb.updateProfilePicture
+  );
+  
 
 exports.adminRouter = adminRouter;

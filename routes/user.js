@@ -5,8 +5,8 @@ const authMiddleware=require('../middleware/authMiddleware.js')
 
 
 UserRouter.post("/signup", Userdb.signUp)
-.post('/verify',Userdb.verifyOTPS)
-.post('/Resend',Userdb.resendOTP)
+  .post("/verify", Userdb.verifyOTPS)
+  .post("/Resend", Userdb.resendOTP)
   .get("/signup", Userdb.getAllRegisterUser)
   .post("/login", Userdb.login)
   .get("/login/:email", Userdb.getUserEmail)
@@ -18,7 +18,7 @@ UserRouter.post("/signup", Userdb.signUp)
   .get("/profile", authMiddleware.authMiddleware, Userdb.getUserProfile)
   .post("/DeleteUser", Userdb.deleteUser)
   .post("/forgot-password", Userdb.forgotPassword)
-  .post('/ResenduserOtp',Userdb.resendOTPS)
+  .post("/ResenduserOtp", Userdb.resendOTPS)
   .post("/reset-password", Userdb.resetPassword)
   .post("/verify-otp", Userdb.verifyOTP)
   .delete("/orders/:orderId", authMiddleware.authMiddleware, Userdb.deleteOrder)
@@ -52,9 +52,9 @@ UserRouter.post("/signup", Userdb.signUp)
   .post("/verify-code", Userdb.VerifyCode)
   .post("/wishlist/add", authMiddleware.authMiddleware, Userdb.addToWishlist)
   .delete(
-    "/wishlist/delete/:itemId",
+    "/wishlist/delete/:productId",
     authMiddleware.authMiddleware,
-    Userdb.deleteFromWishlist
+    Userdb.removeFromWishlist
   )
   .get("/wishlist", authMiddleware.authMiddleware, Userdb.getWishlist)
   .post("/change-password", Userdb.changePassword)
@@ -71,7 +71,12 @@ UserRouter.post("/signup", Userdb.signUp)
     authMiddleware.authMiddleware,
     Userdb.deleteUserAddress
   )
-  .put("/address/:addressId", authMiddleware.authMiddleware, Userdb.updateUserAddress);
+  .put(
+    "/address/:addressId",
+    authMiddleware.authMiddleware,
+    Userdb.updateUserAddress
+  )
+  .delete('/allorderHistory',authMiddleware.authMiddleware,Userdb.deleteUserOrderHistory)
   
 
   

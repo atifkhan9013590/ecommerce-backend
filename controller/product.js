@@ -1,5 +1,4 @@
-const model = require("../model/product");
-const Product = model;
+const Product = require("../model/product");
 
 
 exports.CreateProduct = async (req, res) => {
@@ -19,26 +18,43 @@ exports.CreateProduct = async (req, res) => {
   } = req.body;
 
   try {
-    // Generate a unique SKU asynchronously
+    // Remove additional quotes from title, description, category, and subcategory
+    const cleanTitle = title.trim().replace(/^"(.*)"$/, "$1");
+    const cleanDescription = description.trim().replace(/^"(.*)"$/, "$1");
+    const cleanCategory = category.trim().replace(/^"(.*)"$/, "$1");
+    const cleanSubcategory = subcategory.trim().replace(/^"(.*)"$/, "$1");
+
+    const existingProduct = await Product.findOne({ title: cleanTitle });
+
+    if (existingProduct) {
+      return res
+        .status(400)
+        .json({ error: "Product with this title already exists" });
+    }
+
     const sku = await generateUniqueSku();
 
     const productData = {
-      title,
-      description,
+      title: cleanTitle,
+      description: cleanDescription,
       price: parseFloat(price) || 0,
       quantity,
       stockQuantity: parseInt(stockQuantity, 10) || 0,
       thumbnail,
-      category,
-      subcategory,
+      category: cleanCategory,
+      subcategory: cleanSubcategory,
       image1,
       image2,
       image3,
-      sku // Include the generated SKU in the product data
+      sku, // Include the generated SKU in the product data
     };
 
     // Check if discountPercentage is provided and is a valid number
-    if (discountPercentage !== undefined && discountPercentage !== null && !isNaN(discountPercentage)) {
+    if (
+      discountPercentage !== undefined &&
+      discountPercentage !== null &&
+      !isNaN(discountPercentage)
+    ) {
       productData.discountPercentage = parseFloat(discountPercentage);
     }
 
@@ -48,20 +64,19 @@ exports.CreateProduct = async (req, res) => {
 
     res.status(201).json(savedProduct);
   } catch (err) {
-    console.error('Error creating product:', err);
+    console.error("Error creating product:", err);
     res.status(500).json({ error: "Failed to create product" });
   }
 };
 
-
 async function generateUniqueSku(retries = 5) {
   if (retries === 0) {
-    throw new Error('Exceeded maximum retries for generating a unique SKU');
+    throw new Error("Exceeded maximum retries for generating a unique SKU");
   }
 
   // Generate a random string for SKU
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let sku = '';
+  const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let sku = "";
   for (let i = 0; i < 8; i++) {
     sku += characters.charAt(Math.floor(Math.random() * characters.length));
   }
@@ -76,7 +91,6 @@ async function generateUniqueSku(retries = 5) {
   // Return the unique SKU
   return sku;
 }
-
 
 exports.updateProduct = async (req, res) => {
   const { productId } = req.params; 
@@ -309,7 +323,7 @@ exports.getALLproductsubCategory =async (req,res) => {
 exports.sortAlphabeticallyAZ = async (req, res) => {
   try {
     const { category } = req.params;
-    const products = await Product.find({ category }).sort({ description: 1 });
+    const products = await Product.find({ category }).sort({ title: 1 });
     res.json(products);
   } catch (error) {
     console.error("Error sorting products alphabetically A to Z:", error);
@@ -320,7 +334,7 @@ exports.sortAlphabeticallyAZ = async (req, res) => {
 exports.sortAlphabeticallyZA = async (req, res) => {
   try {
     const { category } = req.params;
-    const products = await Product.find({ category }).sort({ description: -1 });
+    const products = await Product.find({ category }).sort({ title: -1 });
     res.json(products);
   } catch (error) {
     console.error("Error sorting products alphabetically Z to A:", error);

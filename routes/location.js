@@ -7,6 +7,7 @@ LocationRouter
 .post("/", Locationdb.postLocation)
 .get("/",  Locationdb.getLocation)
 .delete('/:Id',Locationdb.deleteLocation)
+.put('/:Id',Locationdb.updateLocation)
 
 
 exports.LocationRouter = LocationRouter;

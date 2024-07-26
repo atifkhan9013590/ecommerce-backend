@@ -8,6 +8,8 @@ exports.SearchByName = async (req, res) => {
     const products = await Product.find({
       $or: [
         { category: { $regex: new RegExp(searchTerm, "i") } },
+        { subcategory: { $regex: new RegExp(searchTerm, "i") } },
+        { title: { $regex: new RegExp(searchTerm, "i") } },
         { sku: { $regex: new RegExp(searchTerm, "i") } },
       ],
     });

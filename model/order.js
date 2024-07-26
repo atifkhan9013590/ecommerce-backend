@@ -15,7 +15,7 @@ const orderSchema = new mongoose.Schema(
           type: String,
           required: true,
         },
-        
+
         description: {
           type: String,
           required: true,
@@ -32,6 +32,10 @@ const orderSchema = new mongoose.Schema(
           required: true,
         },
         category: {
+          type: String,
+          required: true,
+        },
+        sku: {
           type: String,
           required: true,
         },

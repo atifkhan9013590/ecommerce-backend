@@ -24,9 +24,8 @@ const UserSchema = new Schema({
   ],
   wishlist: [
     {
-      productDetails: {
-        type: Schema.Types.Mixed,
-      },
+      type: Schema.Types.ObjectId,
+      ref: "Product",
     },
   ],
   orderHistory: [{ type: Schema.Types.ObjectId, ref: "Order" }],

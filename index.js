@@ -21,12 +21,14 @@ const FilterRouter = require("./routes/filter.js");
 const ProductSearchRouter = require("./routes/productsearch.js");
 const LocationRouter = require("./routes/location.js");
 const ShippingRouter = require("./routes/shipping");
-const NotifyRouter =require('./routes/productNotification.js')
+const NotifyRouter =require('./routes/productNotification.js');
+const PricedropsRouter =require('./routes/pricedrop')
+require("dotenv").config();
 
 const OrderStatusRouter = require("./routes/orderstatus.js");
 
 // Connect to local MongoDB using MongoDB Compass URL
-const DB = "mongodb://localhost:27017/ecommerce"; // Replace 'your_database_name' with your actual database name
+const DB = process.env.DB_URL;
 
 async function main() {
   try {
@@ -71,6 +73,7 @@ app.use("/announcements", AnnouncementRouter.AnnouncementRouter);
 app.use("/notification", notificationRouter.notificationRouter);
 app.use("/search", SearchRouter.SearchRouter);
 app.use("/notifyme", NotifyRouter.NotifyRouter);
+app.use("/pricedrops", PricedropsRouter.PricedropsRouter);
 
 // Server setup
 const PORT = 8000;

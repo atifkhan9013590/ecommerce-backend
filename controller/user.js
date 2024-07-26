@@ -9,14 +9,14 @@ const Coupon = require("../model/coupon");
 
 const nodemailer = require("nodemailer");
 const mongoose = require("mongoose");
-require("dotenv").config(); 
+require("dotenv").config();
 
 async function sendOrderOTPEmailGmail(toEmail, content) {
   try {
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user:process.env.MY_EMAIL, // Your Gmail address
+        user: process.env.MY_EMAIL, // Your Gmail address
         pass: process.env.MY_PASSWORD, // Your Gmail app password
       },
     });
@@ -38,7 +38,7 @@ const generateFourDigitOTP = () => {
   return Math.floor(1000 + Math.random() * 9000);
 };
 
-async function sendWelcomeEmail(email, name) {
+async function sendWelcomeEmail(email) {
   // Create a nodemailer transporter
   const transporter = nodemailer.createTransport({
     // Configure your email service provider here
@@ -54,7 +54,7 @@ async function sendWelcomeEmail(email, name) {
     from: process.env.MY_EMAIL,
     to: email,
     subject: "Welcome to Marjan Store",
-    text: `Hello ${name}, Welcome to Marjan Store! We are glad to have you onboard.`,
+    text: ` Welcome to Marjan Store! We are glad to have you onboard.`,
   };
 
   // Send the email
@@ -83,7 +83,43 @@ const sendOTP = async (email, otp) => {
   }
 };
 
-// Sign up controller
+const removeUnverifiedUsers = async () => {
+  try {
+    // Find unverified users whose OTP expiration time has passed
+    const unverifiedUsers = await User.find({
+      verify: false,
+      otpExpiresAt: { $lt: Date.now() },
+    });
+
+    // Remove unverified users from the database
+    await Promise.all(
+      unverifiedUsers.map(async (user) => {
+        try {
+          // Ensure that user is a Mongoose model instance before calling remove()
+          if (user instanceof User) {
+            await user.deleteOne();
+            console.log(`Removed unverified user: ${user.email}`);
+          } else {
+            console.error(`Invalid user object: ${user}`);
+          }
+        } catch (error) {
+          console.error(`Error removing unverified user: ${user.email}`, error);
+        }
+      })
+    );
+  } catch (error) {
+    console.error("Error removing unverified users:", error);
+  }
+};
+
+// Define a function to periodically check for unverified users
+
+// Set interval to periodically check for unverified users
+setInterval(removeUnverifiedUsers, 1000); // Check every 5 minutes (5 * 60 * 1000 milliseconds)
+
+// Call the function to start checking for unverified users
+removeUnverifiedUsers();
+
 exports.signUp = async (req, res) => {
   const { email, name, password, lastName } = req.body;
   try {
@@ -99,11 +135,12 @@ exports.signUp = async (req, res) => {
       lastName,
       password: hashpassword,
       otp,
-      otpExpiresAt: Date.now() + 600000, // OTP expires in 10 minutes (600000 milliseconds)
+      otpExpiresAt: Date.now() + 200000, // OTP expires in 10 minutes (600000 milliseconds)
     });
     await newUser.save();
 
     await sendOTP(email.toLowerCase(), otp);
+    
 
     res.status(201).json({ message: "User Registered" });
   } catch (error) {
@@ -124,6 +161,7 @@ exports.verifyOTPS = async (req, res) => {
     }
     user.verify = true;
     await user.save();
+    await sendWelcomeEmail(email)
     res.status(200).json({ message: "Account verified successfully" });
   } catch (error) {
     console.error(error);
@@ -141,7 +179,7 @@ exports.resendOTP = async (req, res) => {
     // Generate a new OTP
     const otp = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
     user.otp = otp;
-    user.otpExpiresAt = Date.now() + 600000; // OTP expires in 10 minutes (600000 milliseconds)
+    user.otpExpiresAt = Date.now() + 200000; // OTP expires in 10 minutes (600000 milliseconds)
     await user.save();
 
     // Send the new OTP to the user's email
@@ -163,7 +201,7 @@ exports.changePassword = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     // Check if the current password matches the stored password
-    const isPasswordMatch = await bcrypt.compare(
+    const isPasswordMatch = await  bcrypt.compare(
       currentPassword,
       user.password
     );
@@ -198,33 +236,28 @@ exports.getAllRegisterUser = async (req, res) => {
     res.status(500).json({ err: "No User to show" });
   }
 };
-exports.deleteUser = async (req,res) =>{
-   try {
-   
-     const { userId } = req.body;
+exports.deleteUser = async (req, res) => {
+  try {
+    const { userId } = req.body;
 
-     
-     if (!userId) {
-       return res.status(400).json({ message: "User ID is required" });
-     }
+    if (!userId) {
+      return res.status(400).json({ message: "User ID is required" });
+    }
 
-    
-     const deletedUser = await User.findByIdAndDelete(userId);
+    const deletedUser = await User.findByIdAndDelete(userId);
 
-   
-     if (!deletedUser) {
-       return res.status(404).json({ message: "User not found" });
-     }
+    if (!deletedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-     res.status(200).json({ message: "User deleted successfully" });
-   } catch (error) {
-     console.error("Error deleting user:", error);
-     res.status(500).json({ message: "Internal Server Error" });
-   }
-}
+    res.status(200).json({ message: "User deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
 exports.deleteSelectedUsers = async (req, res) => {
   try {
-   
     const { userIds } = req.body;
 
     // Check if userIds is not provided or is not an array
@@ -252,9 +285,9 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: "Email is incorrect" });
     }
 
-     if (!user.verify) {
-       return res.status(402).json({ message: "Account not verified" });
-     }
+    if (!user.verify) {
+      return res.status(402).json({ message: "Account not verified" });
+    }
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -298,8 +331,6 @@ exports.login = async (req, res) => {
       .json({ message: "An error occurred during authentication" });
   }
 };
-
-
 
 exports.getUserEmail = async (req, res) => {
   try {
@@ -953,127 +984,13 @@ exports.recommendProducts = async (req, res) => {
   }
 };
 
-
-
-
 // Add to Wishlist API
-exports.addToWishlist = async (req, res) => {
-  try {
-    // Check if the user is authenticated
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({
-        message: "Unauthorized - Invalid token or user information missing",
-      });
-    }
-
-    // Extract user ID from the request
-    const userId = req.user.id;
-
-    // Extract product details from the request body
-    const { productDetails } = req.body;
-
-    // Validate product details
-    if (!productDetails) {
-      return res.status(400).json({ message: "Invalid product details" });
-    }
-
-    // Find the user by ID
-    const user = await User.findById(userId);
-
-    // Check if the user exists
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    console.log('productDetails',productDetails);
-    // Add the complete product details to the wishlist
-    user.wishlist.push({ productDetails:productDetails});
-
-    // Save the updated user document
-    await user.save();
-
-    // Respond with success message and updated user document
-    res
-      .status(200)
-      .json({ message: "Product added to wishlist successfully", user });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
 
 // Delete from Wishlist API
 // Delete from Wishlist API
-exports.deleteFromWishlist = async (req, res) => {
-  try {
-    // Extract user ID from the request
-    const userId = req.user.id;
-
-    // Extract productId to delete from the request parameters
-    const productIdToDelete = req.params.itemId; // Corrected parameter name
-
-    console.log("productIdToDelete:", productIdToDelete); // Log the productIdToDelete
-
-    // Find the user by ID
-    const user = await User.findById(userId);
-
-    // Check if the user exists
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Find the index of the item in the wishlist array based on productId
-    const itemIndex = user.wishlist.findIndex(
-      (item) => String(item.productDetails._id) === String(productIdToDelete)
-    );
-
-    // Check if the item exists in the wishlist
-    if (itemIndex === -1) {
-      return res.status(404).json({ message: "Item not found in wishlist" });
-    }
-
-    // Remove the item from the wishlist array
-    user.wishlist.splice(itemIndex, 1);
-
-    // Save the updated user document
-    await user.save();
-
-    // Respond with success message
-    res
-      .status(200)
-      .json({ message: "Item deleted from wishlist successfully" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
 
 
 
-exports.getWishlist = async (req, res) => {
-  try {
-    // Extract user ID from the request
-    const userId = req.user.id;
-
-    // Find the user by ID
-    const user = await User.findById(userId);
-
-    // Check if the user exists
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Log the user's wishlist
-    console.log("User's wishlist:", user.wishlist);
-
-    // Respond with the user's wishlist containing complete details of each item
-    res.status(200).json({ wishlist: user.wishlist });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
 exports.getUserOrderHistory = async (req, res) => {
   try {
     console.log("Request Body:", req.body); // Log the request body to see the ID
@@ -1095,6 +1012,35 @@ exports.getUserOrderHistory = async (req, res) => {
     res.status(200).json(orderHistory);
   } catch (error) {
     console.error("Error fetching user order history:", error.message);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+exports.deleteUserOrderHistory = async (req, res) => {
+  try {
+   
+    const userId = req.user.id;
+
+    console.log("User:", req.user); // Log the user object
+
+   
+    const user = await User.findById(userId);
+
+    if (!user) {
+      console.error("User not found");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+   
+      // Clear the orderHistory array in the user document
+      user.orderHistory = [];
+      await user.save();
+  
+
+    res
+      .status(200)
+      .json({ message: "User order history deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user order history:", error.message);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -1147,7 +1093,6 @@ exports.postUserAddress = async (req, res) => {
     res.status(500).json({ error: "Failed to save user address" });
   }
 };
-
 
 exports.getUserAddresses = async (req, res) => {
   try {
@@ -1208,10 +1153,6 @@ exports.deleteUserAddress = async (req, res) => {
   }
 };
 
-
-
-
-
 exports.recommendProductsBasedOnOrderHistory = async (req, res) => {
   try {
     const userId = req.user.id; // Extract user ID from the request parameters
@@ -1254,7 +1195,6 @@ exports.recommendProductsBasedOnOrderHistory = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 exports.updateUserAddress = async (req, res) => {
   try {
@@ -1302,5 +1242,108 @@ exports.updateUserAddress = async (req, res) => {
     res.status(500).json({
       error: "Failed to update user address. Internal server error occurred.",
     });
+  }
+};
+
+exports.addToWishlist = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { productDetails } = req.body;
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (!productDetails || !productDetails._id) {
+      return res.status(400).json({ message: "Invalid product details" });
+    }
+
+    const productId = productDetails._id;
+
+    // Check if the product is already in the wishlist
+    const productIndex = user.wishlist.findIndex(
+      (item) => item._id.toString() === productId
+    );
+
+    if (productIndex !== -1) {
+      // If the product exists, remove it
+      user.wishlist.splice(productIndex, 1);
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "Product removed from wishlist", user });
+    } else {
+      // If the product does not exist, add it
+      user.wishlist.push(productDetails);
+      await user.save();
+      return res
+        .status(200)
+        .json({ message: "Product added to wishlist", user });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+exports.getWishlist = async (req, res) => {
+  try {
+    // Get user ID from authenticated request
+    const userId = req.user.id;
+
+    // Find the user by ID and populate the wishlist field
+    const user = await User.findById(userId).populate("wishlist");
+
+    // If user not found, return 404 error
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return the user's wishlist
+    res.status(200).json({ wishlist: user.wishlist });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+exports.removeFromWishlist = async (req, res) => {
+  try {
+    // Get user ID from authenticated request
+    const userId = req.user.id;
+
+    // Get the product ID to remove from the request body
+    const { productId } = req.params;
+
+    // Find the user by ID
+    const user = await User.findById(userId);
+
+    // If user not found, return 404 error
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if the product exists in the user's wishlist
+    const productIndex = user.wishlist.findIndex(
+      (item) => item._id.toString() === productId
+    );
+
+    // If the product is not found in the wishlist, return 404 error
+    if (productIndex === -1) {
+      return res.status(404).json({ message: "Product not found in wishlist" });
+    }
+
+    // Remove the product from the wishlist
+    user.wishlist.splice(productIndex, 1);
+
+    // Save the user object
+    await user.save();
+
+    // Return success message
+    res.status(200).json({ message: "Product removed from wishlist" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };

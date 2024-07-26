@@ -37,4 +37,25 @@ exports.deleteShipping = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+exports.updateShipping = async (req, res) => {
+  const { Id } = req.params; // Use uppercase "Id" to match the parameter in the route
+  const { ShippingPolicy } = req.body;
+  console.log("REQBODY", req.body);
+  console.log("ID", Id); // Ensure that "Id" is correctly logged
+  try {
+    // Use findByIdAndUpdate to update the shipping policy by ID
+    const updatedShipping = await Shipping.findByIdAndUpdate(
+      Id, // Use "Id" instead of "id"
+      { ShippingPolicy },
+      { new: true }
+    );
 
+    if (!updatedShipping) {
+      return res.status(404).json({ message: "Shipping policy not found" });
+    }
+
+    res.json(updatedShipping);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

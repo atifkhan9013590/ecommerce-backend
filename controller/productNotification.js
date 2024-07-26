@@ -57,8 +57,11 @@ async function checkProductAvailabilityAndSendNotifications() {
         );
 
         // Update notification flag to indicate that the user has been notified
-        notification.notified = true;
-        await notification.save();
+        await ProductNotification.findByIdAndDelete(notification._id);
+        console.log(
+          "Price drop notification email sent to:",
+          notification.userEmail
+        );
       }
     }
   } catch (error) {
@@ -109,6 +112,23 @@ exports.notifyMeWhenInStock = async (req, res) => {
     res.status(201).json({ message: "Notification request received" });
   } catch (error) {
     console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+exports.existingNotification = async (req, res) => {
+  try {
+    const { productId, userEmail } = req.query;
+
+    // Check if a notification exists for the provided product ID and user email
+    const existingNotification = await ProductNotification.findOne({
+      productId,
+      userEmail,
+    });
+
+    // Send response indicating whether a notification exists
+    res.status(200).json({ exists: !!existingNotification });
+  } catch (error) {
+    console.error("Error checking notification:", error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };

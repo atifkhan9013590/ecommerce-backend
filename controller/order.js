@@ -29,7 +29,8 @@ function generateEmailContent(
   lastName,
   address,
   city,
-  postalCode
+  postalCode,
+   phoneNumber,
 ) {
   let content = "<h1>Order Details:</h1>";
 
@@ -40,6 +41,7 @@ function generateEmailContent(
         <p><strong>Description:</strong> ${product.description}</p>
         <p><strong>Quantity:</strong> ${product.cartQuantity}</p>
         <p><strong>Price:</strong> ${product.price}</p>
+           <p><strong>SKU:</strong> ${product.sku}</p>
       </div>
     `;
   });
@@ -58,6 +60,7 @@ function generateEmailContent(
   content += `<p><strong>Address:</strong> ${address}</p>`;
   content += `<p><strong>City:</strong> ${city}</p>`;
   content += `<p><strong>Postal Code:</strong> ${postalCode}</p>`;
+  content += `<p><strong>Phone Number:</strong> ${phoneNumber}</p>`;
 
   return content;
 }
@@ -104,7 +107,8 @@ async function sendOrderConfirmationEmail(
   lastName,
   address,
   city,
-  postalCode
+  postalCode,
+   phoneNumber
 ) {
   try {
     const { products, totalAmount } = orderData;
@@ -117,7 +121,8 @@ async function sendOrderConfirmationEmail(
       lastName,
       address,
       city,
-      postalCode
+      postalCode,
+      phoneNumber
     );
 
     // Generate attachments for thumbnails
@@ -150,7 +155,7 @@ exports.placeOrder = async (req, res) => {
       path: "cart",
       model: "Product",
       select:
-        "_id name title  cartQuantity stockQuantity category description percentage price thumbnail quantity",
+        "_id name title  sku cartQuantity stockQuantity category description percentage price thumbnail quantity",
     });
 
     if (!user) {
@@ -236,6 +241,7 @@ exports.placeOrder = async (req, res) => {
         price: item.productDetails.price,
         stockQuantity: item.productDetails.stockQuantity,
         quantity: item.productDetails.quantity,
+         sku:item.productDetails.sku,
         cartQuantity: item.cartQuantity,
       })),
       Email,
@@ -303,7 +309,8 @@ exports.placeOrder = async (req, res) => {
        lastName,
        address,
        city,
-       postalCode
+       postalCode,
+      phoneNumber,
      );
 
     // Save order notification
@@ -663,6 +670,7 @@ exports.placeOrderWithProduct = async (req, res) => {
         percentage: product.percentage,
         cartQuantity: product.cartQuantity,
         category: product.category,
+        sku: product.sku,
       })),
       Email,
       totalAmount,
@@ -715,7 +723,8 @@ exports.placeOrderWithProduct = async (req, res) => {
      lastName,
      address,
      city,
-     postalCode
+     postalCode,
+      phoneNumber,
    );
 
     // Save order notification

@@ -4,7 +4,7 @@ const { Schema } = mongoose;
 const Rating = require("./rating");
 
 const productSchema = new Schema({
-  title: { type: String, required: true },
+  title: { type: String, required: true, unique: true },
   description: String,
   price: { type: Number },
   discountPercentage: { type: Number },
@@ -19,15 +19,21 @@ const productSchema = new Schema({
   image3: String,
   images: [String], // Store images in an array
   quantity: { type: Number, default: 1 },
-  stockStatus: { type: String, enum: ["In Stock", "Out of Stock"], default: "In Stock" },
+  stockStatus: {
+    type: String,
+    enum: ["In Stock", "Out of Stock"],
+    default: "In Stock",
+  },
   stockQuantity: { type: Number },
-  reviews: [{
-    email: String,
-    rating: Number,
-    comment: String,
-    timestamp: { type: Date, default: Date.now },
-  }], 
-  sku: { type: String, unique: true }
+  reviews: [
+    {
+      email: String,
+      rating: Number,
+      comment: String,
+      timestamp: { type: Date, default: Date.now },
+    },
+  ],
+  sku: { type: String, unique: true },
 });
 
 // Before saving the product, push the thumbnail and images into the 'images' array

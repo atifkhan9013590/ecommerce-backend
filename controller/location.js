@@ -38,3 +38,28 @@ exports.deleteLocation = async (req,res)=>{
     }
 
 }
+
+exports.updateLocation = async (req, res) => {
+  const { Id } = req.params;
+  const { Address } = req.body;
+console.log('Address',req.body)
+  try {
+    // Find the location by ID and update it
+    const updatedLocation = await Location.findByIdAndUpdate(
+      Id,
+      { Address },
+      { new: true } // Return the updated location
+    );
+
+    // Check if the location exists
+    if (!updatedLocation) {
+      return res.status(404).json({ message: "Location not found" });
+    }
+
+    // Send the updated location as JSON response
+    res.json(updatedLocation);
+  } catch (error) {
+    // Handle errors
+    res.status(500).json({ message: error.message });
+  }
+};

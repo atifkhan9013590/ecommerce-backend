@@ -5,11 +5,8 @@ const adminSchema = new Schema({
   userName: String,
   email: { type: String, unique: true, required: true },
   password: String,
-  profile: {
-    picture: { type: String, default: "" }, // Initialize as empty string
-    name: String,
-  },
   resetPasswordOTP: { type: Number, default: null },
+  profilePicture: String,
 });
 
 

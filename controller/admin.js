@@ -1,5 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { unlink } = require("fs-extra");
+
+
 const Admin = require('../model/admin.js'); // Make sure to provide the correct path
 
 const nodemailer = require("nodemailer");
@@ -119,35 +122,6 @@ exports.adminLogin = async (req, res) => {
     res.status(500).json({ message: 'An error occurred during admin authentication' });
   }
 };
-exports.updateAdminProfile = async (req, res) => {
-  const { name, picture } = req.body;
-  const adminId = req.admin.id;
-
-  try {
-    const admin = await Admin.findById(adminId);
-
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found" });
-    }
-
-    // Save the picture data as a string directly in the database
-    admin.profile.picture = picture;
-
-    admin.profile.name = name;
-
-    await admin.save();
-
-    res.status(200).json({
-      message: "Admin profile updated successfully",
-      admin: admin.profile,
-    });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "An error occurred while updating admin profile" });
-  }
-};
 
 exports.adminProfile = async(req,res)=>{
     try {
@@ -176,7 +150,7 @@ exports.forgotPassword = async (req, res) => {
 
     if (!admin) {
       return res
-        .status(200)
+        .status(401)
         .json({ message: "Email not found", emailFound: false });
     }
 
@@ -350,6 +324,144 @@ exports.changePassword = async (req, res) => {
     await admin.save();
 
     res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+
+exports.ResendOtp =async (req,res) => {
+ const { email } = req.body;
+
+ try {
+   const admin = await Admin.findOne({ email });
+
+   if (!admin) {
+     return res
+       .status(401)
+       .json({ message: "Email not found", emailFound: false });
+   }
+
+   // Generate a four-digit OTP
+   const otp = generateFourDigitOTP();
+
+   // Log the generated OTP
+   console.log("Generated OTP:", otp);
+
+   // Save the OTP to the user's document
+   admin.resetPasswordOTP = otp; // Assign OTP to resetPasswordOTP field
+   await admin.save(); // Save the admin document with OTP
+
+   // Send OTP via email
+   const emailContent = `Your OTP for password reset is: ${otp}`;
+   await sendOrderOTPEmailGmail(email, emailContent);
+
+   res.status(200).json({ message: "OTP sent successfully", emailFound: true });
+ } catch (error) {
+   console.error(error);
+   res.status(500).json({
+     message: "Internal Server Error",
+     error: error.message,
+     emailFound: true,
+   });
+ }
+}
+
+
+exports.uploadProfilePicture = async (req, res) => {
+  try {
+    const { profilePicture } = req.body;
+
+    if (!profilePicture) {
+      return res.status(400).json({
+        message: "Bad Request - Profile picture file is missing",
+      });
+    }
+
+    // Extract admin ID from decoded token
+    const adminId = req.admin.id;
+
+    // Find the admin by ID
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Update the profilePicture field with the base64 image data
+    admin.profilePicture = profilePicture;
+
+    // Save the updated admin document
+    await admin.save();
+
+    res.status(200).json({ message: "Profile picture uploaded successfully" });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+exports.getProfilePicture = async (req, res) => {
+  try {
+    // Get the admin ID from request body or token (depending on your authentication mechanism)
+    const adminId = req.admin.id; // Assuming admin ID is provided in request body
+
+    // Find the admin by ID
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // Send the profile picture path in the response
+    res.status(200).json({ profilePicture: admin.profilePicture });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+exports.updateProfilePicture = async (req, res) => {
+  try {
+    // Check for validation errors
+ const { profilePicture } = req.body;
+    // Check if the profile picture is present in the request body
+    if (!profilePicture) {
+      return res.status(400).json({
+        message: "Bad Request - Profile picture file is missing",
+      });
+    }
+
+    // Extract admin ID from decoded token
+    const adminId = req.admin.id;
+
+    // Find the admin by ID
+    const admin = await Admin.findById(adminId);
+
+    if (!admin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    // If admin already has a profile picture, update it
+    if (admin.profilePicture) {
+      // Update the profilePicture field with the path to the uploaded image
+      admin.profilePicture = profilePicture;
+    } else {
+      // If admin does not have a profile picture, set the new one
+      admin.profilePicture = profilePicture;
+    }
+
+    // Save the updated admin document
+    await admin.save();
+
+    res.status(200).json({ message: "Profile picture updated successfully" });
   } catch (error) {
     console.error(error);
     res

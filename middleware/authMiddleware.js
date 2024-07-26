@@ -1,6 +1,4 @@
 const jwt = require('jsonwebtoken');
-
-const { SECRET_KEY, ADMIN_SECRET_KEY } = require('../config.js');
 require("dotenv").config(); 
 
 exports.authMiddleware = async (req, res, next) => {
@@ -11,7 +9,7 @@ const token = req.headers.authorization;
   }
 
   try {
-    const decoded = await jwt.verify(token, SECRET_KEY);
+    const decoded = await jwt.verify(token,process.env.SECRET_KEY);
     console.log('Received Token:', token);
     console.log('Decoded Payload:', decoded);
 
